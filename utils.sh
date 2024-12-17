@@ -2,6 +2,133 @@
 
 set -euo pipefail
 
+script_dir=$(dirname "$(realpath "$0")")
+assets_dir="$script_dir/assets"
+G='\033[0;32m'
+LG='\033[1;32m'
+Y='\033[1;33m'
+R='\033[0;31m'
+E='\033[0m'
+
+binary_search() {
+  dir_path="$1"
+  extra_check="$2"
+  low=1
+  high=$(ls -A "$dir_path" | wc -l | awk '{print $1}')
+
+  stty -echo -icanon
+  while [[ $low -le $high ]]; do
+    mid=$(((low + high) / 2))
+    mid_image=$(printf "frame%04d.png" $mid)
+    open -R "$dir_path/$mid_image"
+    osascript -e 'tell application "iTerm" to activate'
+
+    echo -e "$mid_image was open.\nIs the image left or right from the target? (← or →, f — found, a — again, s — skip)"
+    input=$(dd bs=1 count=1 2>/dev/null)
+    if [[ "$input" == $'\x1b' ]]; then
+      input2=$(dd bs=1 count=2 2>/dev/null)
+
+      # if left
+      if [[ "$input2" == "[D" ]]; then
+        # (finding the end of spin)
+        if [[ "$extra_check" == "behind" ]]; then
+          mid2=$((mid - 1))
+          mid_image2=$(printf "frame%04d.png" $mid2)
+          echo -e "${Y}Lookbehind check. $mid_image2 was open.\nIs the image left or right from the target? (← or →)${E}"
+          open -R "$dir_path/$(printf "frame%04d.png" $mid2)"
+          osascript -e 'tell application "iTerm" to activate'
+          input3=$(dd bs=1 count=1 2>/dev/null)
+          [[ "$input3" != $'\x1b' ]] && echo -e "${R}Invalid input.${E}" && continue
+          input4=$(dd bs=1 count=2 2>/dev/null)
+          [[ "$input4" == "[C" ]] && break
+          [[ "$input4" != "[D" ]] && echo -e "${R}Invalid input.${E}" && continue
+        fi
+        high=$((mid - 1)) && continue
+      fi
+
+      # if right
+      if [[ "$input2" == "[C" ]]; then
+        # (finding the init of spin)
+        if [[ "$extra_check" == "ahead" ]]; then
+          mid2=$((mid + 1))
+          mid_image2=$(printf "frame%04d.png" $mid2)
+          echo -e "${Y}Lookahead check. $mid_image2 was open.\nIs spin frame? (← or →)${E}"
+          open -R "$dir_path/$(printf "frame%04d.png" $mid2)"
+          osascript -e 'tell application "iTerm" to activate'
+          input3=$(dd bs=1 count=1 2>/dev/null)
+          [[ "$input3" != $'\x1b' ]] && echo -e "${R}Invalid input.${E}" && continue
+          input4=$(dd bs=1 count=2 2>/dev/null)
+          [[ "$input4" == "[D" ]] && break
+          [[ "$input4" != "[C" ]] && echo -e "${R}Invalid input.${E}" && continue
+        fi
+        low=$((mid + 1)) && continue
+      fi
+
+      echo -e "${R}Invalid input.${E}" && continue
+    fi
+    [[ "$input" == "f" ]] && echo -e "${R}Found.${E}" && RESULT="$mid" && return 0
+    [[ "$input" == "a" ]] && echo -e "${R}Run again.${E}" && return 1
+    [[ "$input" == "s" ]] && echo -e "${R}Skipped.${E}" && RESULT=null && return 0
+
+    echo -e "${R}Invalid input.${E}"
+  done
+
+  echo -e "${G}Found $mid_image ${E}"
+  RESULT="$mid"
+
+  echo -e "${LG}Final check. $mid_image was open. Is it? (y or n)${E}"
+  open -R "$dir_path/$mid_image"
+  input=$(dd bs=1 count=1 2>/dev/null)
+  [[ "$input" != "y" ]] && echo -e "${R}Restart!${E}" && return 1
+
+  stty echo icanon
+}
+
+manual_finder() {
+  exec 3< <(find "$assets_dir" -type d | awk -F'/' '{print NF, $0}' | sort -nr | awk 'NR==1 {max=$1} $1==max {print $2}')
+  while read -r dir_path <&3; do
+    filepath="assets${dir_path#*/assets}"
+    if jq -r '.[].path' < "$script_dir/output.json" | grep -q "$filepath"; then
+      echo -e "${R}Skipped $dir_path.${E}"
+      continue
+    fi
+    echo -e "${G}Start $dir_path.${E}"
+
+    echo -e "${LG}Find first wheel frame.${E}"
+    while ! binary_search "$dir_path" ""; do
+      :
+    done
+    first_wheel_frame="$RESULT"
+
+    echo -e "${LG}Find init spin frame.${E}"
+    while ! binary_search "$dir_path" "ahead"; do
+      :
+    done
+    init_frame="$RESULT"
+
+    echo -e "${LG}Find end spin frame.${E}"
+    while ! binary_search "$dir_path" "behind"; do
+      :
+    done
+    end_spin_frame="$RESULT"
+
+    json="{\"path\": \"$filepath\", \"first_wheel_frame\": $first_wheel_frame, \"init_frame\": $init_frame, \"end_spin_frame\": $end_spin_frame}"
+    echo "$json" | jq .
+
+    jq ". += [$json]" "$script_dir/output.json" > "$script_dir/tmp.json" && mv "$script_dir/tmp.json" "$script_dir/output.json"
+  done
+  exec 3<&-
+}
+
+cut() {
+  while read -r filepath; do
+    echo -e "${G}Start $filepath${E}"
+    dir="${filepath%.*}"
+    mkdir -p "$dir"
+    ffmpeg -nostdin -i "$filepath" -qscale:v 31 -vf "scale=iw*0.1:ih*0.1" "$dir/frame%04d.png"
+  done < <(find "$assets_dir" -type f \( -iname \*.ts -o -iname \*.mp4 -o -iname \*.m4v \))
+}
+
 time_diff() {
   start_time="$1"
   end_time="$2"
