@@ -129,6 +129,23 @@ cut() {
   done < <(find "$assets_dir" -type f \( -iname \*.ts -o -iname \*.mp4 -o -iname \*.m4v \))
 }
 
+set_length() {
+  exec 3< <(jq -r '.[].path' "$script_dir/output.json")
+
+  while read -r dir <&3; do
+    echo -e "${G}Start $dir${E}"
+    filepath=$(find "$assets_dir" -type f -name "$(basename "$dir").*" | tail -1)
+    open "$filepath"
+    read -rp "length: " length
+    filepath="assets${filepath#*/assets}"
+    json="{\"path\": \"$dir\", \"length\": $length, \"filepath\": \"$filepath\"}"
+    echo "$json" | jq .
+
+    jq ". += [$json]" "$script_dir/length.json" > "$script_dir/tmp.json" && mv "$script_dir/tmp.json" "$script_dir/length.json"
+    ps aux | grep -v grep | grep /Applications/IINA.app/Contents/MacOS/IINA | awk '{print $2}' | xargs kill -9
+  done
+}
+
 time_diff() {
   start_time="$1"
   end_time="$2"
@@ -161,3 +178,4 @@ scrap_external() {
     streamlink --hls-start-offset "$start" --hls-duration "$duration" "$link" best -o "$filepath"
   done < <(jq -r '.[] | "\(.channel) \(.link) \(.start) \(.end)"' "$script_dir/links.json")
 }
+
