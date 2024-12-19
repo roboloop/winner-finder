@@ -179,3 +179,42 @@ scrap_external() {
   done < <(jq -r '.[] | "\(.channel) \(.link) \(.start) \(.end)"' "$script_dir/links.json")
 }
 
+_extract_frames() {
+  output_dir="$1"
+  init_frame_offset="$2"
+
+  # dump frames
+  data="["
+  while read -r filepath init_frame length; do
+    [ "$init_frame" == "null" ] && continue
+    echo -e "${G}Start ${filepath}${E}"
+    frame_index=$((init_frame + init_frame_offset))
+    filename="$(basename "${filepath%.*}").png"
+    output_path="$output_dir/$filename"
+    ffmpeg -nostdin -i "$script_dir/$filepath" -vf "select=eq(n\,${frame_index})" -vsync vfr -q:v 1 "$output_path"
+
+    data+="{\"path\": \"$filename\"},"
+  done < <(jq -r '.[] | "\(.filepath) \(.init_frame) \(.length)"' "$script_dir/input.json")
+
+  data="${data%,}]"
+  echo "$data" | jq -r > "$output_dir/input.json"
+}
+
+extract_length_frames() {
+  output_dir="$script_dir/detect_length"
+  mkdir -p "$output_dir"
+
+  _extract_frames "$output_dir" 0
+}
+
+extract_init_frames() {
+  output_dir="$script_dir/extract_sectors"
+  mkdir -p "$output_dir"
+
+  _extract_frames "$output_dir" "-1"
+}
+
+[[ $# -lt 1 ]] && echo "No function was passed" && exit 1
+fn="$1"
+shift
+"$fn" "$@"
