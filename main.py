@@ -1,17 +1,18 @@
 import argparse
+import logging
 from typing import List, Optional
 
 import config
 import stream
+logger = config.setup_logger(level=logging.INFO)
 
 
-def handle_winner(filepath: Optional[str], fps: int) -> None:
     try:
-        reader = stream.Reader(filepath, fps)
+        logger.info(f"Start handle: {filepath}")
         segment = stream.Segment(reader)
         segment.detect_winner()
     except Exception as e:
-        print(e)
+        logger.error("fail", extra={"e": e, "trace": traceback.format_exc()})
 
 
 def main():
