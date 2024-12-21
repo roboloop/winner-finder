@@ -1,8 +1,12 @@
-from typing import List
+import logging
+from typing import List, Optional
 
 from vidgear.gears import CamGear
 
+import config
 import stream
+
+logger = config.setup_logger(level=logging.INFO)
 
 
 class Reader:
@@ -29,12 +33,27 @@ class Reader:
             frame = self._stream.read()
             if frame is None:
                 self._can_read = False
+                logger.error("No frame was read", extra={"frame": self._frame_index})
                 break
 
             frame_buffer.append(stream.Frame(frame, self._frame_index))
             self._frame_index += 1
 
         return frame_buffer
+
+    def read_until_spin_found(self, sec: int) -> List[stream.Frame]:
+        last_frame: Optional[stream.Frame] = None
+        while True:
+            buffer = self.read(sec)
+            if last_frame is not None:
+                buffer.insert(0, last_frame)
+
+            last_frame = buffer[-1]
+            if last_frame.is_spin_frame():
+                break
+            logger.warning(f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) is not a spin")
+
+        return buffer
 
     def can_read(self) -> bool:
         return self._can_read
