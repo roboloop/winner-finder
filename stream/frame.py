@@ -86,6 +86,41 @@ class Frame:
 
         return self._lot_name
 
+    def detect_length(self) -> int:
+        circle = self.detect_wheel()
+
+        center_x, center_y, radius = circle
+        roi_y_start = max(0, center_y - radius - TOP_OFFSET)
+        roi_y_end = max(0, center_y - radius)
+        roi_x_start = max(0, center_x + radius)
+        roi_x_end = min(self._frame.shape[1], center_x + radius + radius)
+        block_roi = self._frame[roi_y_start:roi_y_end, roi_x_start:roi_x_end]
+
+        gray = cv2.cvtColor(block_roi, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 100)
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        rectangles = []
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            if w >= 50 and h >= 28:
+                rectangles.append((x, y, w, h))
+
+        if len(rectangles) != 2:
+            raise Exception("Length not found")
+        x, y, w, h = rectangles[1]
+
+        roi = block_roi[y + 8: y + h - 8, x + 5: x + w - 5]
+
+        _, thresh = cv2.threshold(roi, 150, 255, cv2.THRESH_BINARY)
+
+        text = pytesseract.image_to_string(thresh, config="--psm 6 -c tessedit_char_whitelist=0123456789")
+        matches = re.findall(r"\b(\d{2,3})\b", text)
+        if not matches:
+            raise Exception(f"no candidates")
+
+        return int(matches[0])
+
     def is_init_frame(self) -> bool:
         try:
             text = self.detect_lot_name()

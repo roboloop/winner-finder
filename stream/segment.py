@@ -35,6 +35,11 @@ class Segment:
 
         return None
 
+    def _detect_length(self) -> int | List[int]:
+        self._populate_first_spins()
+        length = self._first_spins_buffer[0].detect_length()
+        logger.info(f"Length was detected via screen parsing: {length}")
+        return length
 
     def _populate_first_spins(self) -> None:
         if len(self._first_spins_buffer) != 0:
@@ -54,6 +59,6 @@ class Segment:
 
         self._init_frame.wheel[2] -= 1
 
-
     def detect_winner(self):
-        pass
+        length = self._detect_length()
+        logger.info(f"Len {length}")
