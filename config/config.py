@@ -1,1 +1,3 @@
 READ_STEP = 2
+ASK_LENGTH = True
+

@@ -37,9 +37,30 @@ class Segment:
 
     def _detect_length(self) -> int | List[int]:
         self._populate_first_spins()
-        length = self._first_spins_buffer[0].detect_length()
-        logger.info(f"Length was detected via screen parsing: {length}")
-        return length
+
+        try:
+            # The first spin frame.
+            length = self._first_spins_buffer[0].detect_length()
+            logger.info(f"Length was detected via screen parsing: {length}")
+            return length
+        except Exception as e:
+            logger.error(f"The length wasn't detected via screen parsing: {e}")
+
+        if config.ASK_LENGTH:
+            # Manual enter
+            with open("/dev/tty", "r+") as tty:
+                tty.write("Cannot detect length. Manual enter: ")
+                tty.flush()
+                response = tty.readline().strip()
+                tty.write("")
+
+            if response.isdigit():
+                length = int(response)
+                logger.info(f"Length was set to {length}")
+
+                return length
+
+        raise Exception("cannot detect the length")
 
     def _populate_first_spins(self) -> None:
         if len(self._first_spins_buffer) != 0:
