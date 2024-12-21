@@ -35,6 +35,7 @@ class Segment:
 
         return None
 
+
     def _populate_first_spins(self) -> None:
         if len(self._first_spins_buffer) != 0:
             return
@@ -48,9 +49,8 @@ class Segment:
         self._first_spins_buffer = buffer[_init_frame_index + 1 :]
         self._init_frame = buffer[_init_frame_index]
         logger.info("Init frame was found", extra={"frame": {self._init_frame.index}})
-
-        if not self._init_frame.is_circle():
-            logger.error("Circle is ellipse. The result could be vary")
+        if self._init_frame.is_circle():
+            logger.error("Circle is ellipse? The result could be vary")
 
         self._init_frame.wheel[2] -= 1
 
