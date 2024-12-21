@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import collections
 import logging
-from typing import Optional
+import math
+import re
+from typing import List, Optional
 
 import cv2
 import numpy as np
 import pytesseract
 
 import config
+import utils
 
 logger = config.setup_logger(level=logging.INFO)
 
@@ -86,6 +90,63 @@ class Frame:
 
         return self._lot_name
 
+    def _find_length_section(self, block_roi: np.ndarray) -> np.ndarray:
+        gray = cv2.cvtColor(block_roi, cv2.COLOR_BGR2GRAY)
+        # 50 and 100 — heuristics value. For someone's stream 5 and 10 should be used
+        candidates = [(50, 100), (5, 10)]
+        for threshold1, threshold2 in candidates:
+            edges = cv2.Canny(gray, threshold1, threshold2)
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            rectangles = []
+            for contour in contours:
+                x, y, w, h = cv2.boundingRect(contour)
+                # 70 (50 for the range length) and 28 the min size of the target rectangle
+                if w >= 50 and h >= 28:
+                    rectangles.append((x, y, w, h))
+
+            # drop all inner rectangles
+            filtered_rectangles = []
+            for i, (x1, y1, w1, h1) in enumerate(rectangles):
+                is_inner = False
+                for j, (x2, y2, w2, h2) in enumerate(rectangles):
+                    if i != j and x2 <= x1 and y2 <= y1 and (x2 + w2) >= (x1 + w1) and (y2 + h2) >= (y1 + h1):
+                        is_inner = True
+                        break
+                if not is_inner:
+                    filtered_rectangles.append((x1, y1, w1, h1))
+
+
+            # if there are only 2 rectangles: Крутимся и Длительность, then it was successful
+            if len(filtered_rectangles) == 2:
+                # x, y, w, h = max(final_rectangles, key=lambda item: item[1])
+                x, y, w, h = filtered_rectangles[1]
+                return block_roi[y + 8 : y + h - 8, x + 5 : x + w - 5]
+
+        raise Exception("length roi wasn't found")
+
+    def _detect_length(self, roi: np.ndarray) -> int:
+        candidates = []
+        for threshold in range(170, 140, -5):
+            _, thresh = cv2.threshold(roi, threshold, 255, cv2.THRESH_BINARY)
+
+            text = pytesseract.image_to_string(thresh, config="--psm 6 -c tessedit_char_whitelist=0123456789")
+            matches = re.findall(r"\b(\d{2,3})\b", text)
+            if not matches:
+                continue
+
+            candidates.append(int(matches[0]))
+
+        if len(candidates) == 0:
+            raise Exception(f"no candidates")
+
+        length, total = collections.Counter(candidates).most_common(1)[0]
+        logger.info("Length candidates", extra={"candidates": candidates})
+        if total < 3:
+            raise Exception(f"not enough the candidates of {length}")
+
+        return length
+
     def detect_length(self) -> int:
         circle = self.detect_wheel()
 
@@ -96,30 +157,14 @@ class Frame:
         roi_x_end = min(self._frame.shape[1], center_x + radius + radius)
         block_roi = self._frame[roi_y_start:roi_y_end, roi_x_start:roi_x_end]
 
-        gray = cv2.cvtColor(block_roi, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 50, 100)
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        utils.visualize(block_roi, "Length section")
+        rect = self._find_length_section(block_roi)
+        utils.visualize(rect, "Cropped length section")
 
-        rectangles = []
-        for contour in contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            if w >= 50 and h >= 28:
-                rectangles.append((x, y, w, h))
+        length = self._detect_length(rect)
 
-        if len(rectangles) != 2:
-            raise Exception("Length not found")
-        x, y, w, h = rectangles[1]
+        return length
 
-        roi = block_roi[y + 8: y + h - 8, x + 5: x + w - 5]
-
-        _, thresh = cv2.threshold(roi, 150, 255, cv2.THRESH_BINARY)
-
-        text = pytesseract.image_to_string(thresh, config="--psm 6 -c tessedit_char_whitelist=0123456789")
-        matches = re.findall(r"\b(\d{2,3})\b", text)
-        if not matches:
-            raise Exception(f"no candidates")
-
-        return int(matches[0])
 
     def is_init_frame(self) -> bool:
         try:
