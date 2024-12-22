@@ -10,9 +10,11 @@ logger = config.setup_logger(level=logging.INFO)
 
 
 class Reader:
-    def __init__(self, filepath: str, fps: int = 60):
+    def __init__(self, filepath: str, fps: int = 60, skip_sec: int = 0):
         self._frame_index = 1
         self._fps = fps
+        self._skip_sec = skip_sec
+        self._is_skipped = False
         self._can_read = True
         is_stream = filepath.startswith("https")
         self._stream = CamGear(source=filepath, stream_mode=is_stream, logging=True).start()
@@ -24,9 +26,21 @@ class Reader:
     def fps(self) -> int:
         return self._fps
 
+    def _skip_read(self) -> None:
+        if self._skip_sec == 0 or self._is_skipped:
+            return
+
+        logger.info(f"Skipping {self._skip_sec}s")
+        for i in range(0, self._fps * self._skip_sec):
+            self._stream.read()
+            self._frame_index += 1
+        self._is_skipped = True
+
     def read(self, sec: int) -> List[stream.Frame]:
         if not self._can_read:
             raise Exception("Cannot read stream")
+
+        self._skip_read()
 
         frame_buffer: List[stream.Frame] = []
         for i in range(0, self._fps * sec):
