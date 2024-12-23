@@ -83,6 +83,8 @@ class Frame:
         gray = cv2.cvtColor(text_roi, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 170, 255, cv2.THRESH_BINARY)
 
+        utils.visualize(text_roi, 'text roi before preprocessing')
+
         text = pytesseract.image_to_string(thresh, lang=config.TESSERACT_LANG, config="--psm 6")
         logger.info("Lot name was detected", extra={"text": text.strip(), "frame": {self._index}})
 
@@ -216,3 +218,7 @@ class Frame:
         cropped = circle_content[max(0, y1) : y2, max(0, x1) : x2]
 
         return cropped
+
+    def force_set_wheel(self, wheel: np.ndarray) -> None:
+        # TODO: no copy?
+        self._wheel = wheel

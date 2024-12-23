@@ -64,10 +64,33 @@ class Reader:
 
             last_frame = buffer[-1]
             if last_frame.is_spin_frame():
-                break
+                prev_frame = buffer[-1]
+                try:
+                    diff = last_frame.calculate_rotation_with(prev_frame)
+                    # else delta is so small then it's not spin
+                    if min(diff, abs(diff - 360)) > 0.01:
+                        break
+
+                    logger.warning(f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) looks like a spin but spin delta is low")
+                    continue
+                except Exception:
+                    pass
             logger.warning(f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) is not a spin")
 
+        # Nasty optimization for all other wheels
+        # print(f'last_frame.wheel: {last_frame.wheel}')
+        for frame in buffer:
+            frame.force_set_wheel(last_frame.wheel)
+
         return buffer
+
+    def skip(self, sec: int) -> None:
+        logger.info(f"Extra skipping {sec}s")
+        skip_frames = self._fps * sec
+        self._frame_index += skip_frames
+
+        for i in range(0, skip_frames):
+            self._stream.read()
 
     def can_read(self) -> bool:
         return self._can_read
