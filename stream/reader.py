@@ -64,7 +64,8 @@ class Reader:
 
             last_frame = buffer[-1]
             if last_frame.is_spin_frame():
-                prev_frame = buffer[-1]
+                # Take a frame before the previous one, to avoid a case when two serial frames are the same frames.
+                prev_frame = buffer[-3]
                 try:
                     diff = last_frame.calculate_rotation_with(prev_frame)
                     # else delta is so small then it's not spin
@@ -78,9 +79,8 @@ class Reader:
             logger.warning(f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) is not a spin")
 
         # Nasty optimization for all other wheels
-        # print(f'last_frame.wheel: {last_frame.wheel}')
-        for frame in buffer:
-            frame.force_set_wheel(last_frame.wheel)
+        # for frame in buffer:
+        #     frame.force_set_wheel(last_frame.wheel)
 
         return buffer
 
