@@ -11,6 +11,7 @@ import numpy as np
 import pytesseract
 
 import config
+import stream
 import utils
 
 logger = config.setup_logger(level=logging.INFO)
@@ -193,7 +194,7 @@ class Frame:
 
     # TODO: doesn't work right. It finds a strange contours
     def is_circle(self):
-        circle = self.extract_circle_content()
+        circle = self.extract_circle_content(False)
         gray = cv2.cvtColor(circle, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -207,11 +208,15 @@ class Frame:
         (x, y), (major_axis, minor_axis), angle = ellipse
         return abs(major_axis - minor_axis) / max(major_axis, minor_axis) < 0.5
 
-    def extract_circle_content(self) -> np.ndarray:
+    def extract_circle_content(self, keep_center: bool) -> np.ndarray:
         center_x, center_y, radius = self.wheel
 
         mask = np.zeros(self._frame.shape[:2], dtype=np.uint8)
         cv2.circle(mask, (center_x, center_y), radius, 255, -1)
+
+        if not keep_center:
+            inner_radius = int(0.25 * radius)
+            cv2.circle(mask, (center_x, center_y), inner_radius, 0, -1)
 
         circle_content = cv2.bitwise_and(self._frame, self._frame, mask=mask)
         x1, y1, x2, y2 = center_x - radius, center_y - radius, center_x + radius, center_y + radius
@@ -222,3 +227,30 @@ class Frame:
     def force_set_wheel(self, wheel: np.ndarray) -> None:
         # TODO: no copy?
         self._wheel = wheel
+
+    def calculate_rotation_with(self, another_frame: stream.Frame) -> float:
+        gray1 = cv2.cvtColor(self.extract_circle_content(False).copy(), cv2.COLOR_BGR2GRAY)
+        gray2 = cv2.cvtColor(another_frame.extract_circle_content(False).copy(), cv2.COLOR_BGR2GRAY)
+
+        orb = cv2.ORB_create()
+        keypoints1, descriptors1 = orb.detectAndCompute(gray1, None)
+        keypoints2, descriptors2 = orb.detectAndCompute(gray2, None)
+
+        bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        matches = bf.match(descriptors1, descriptors2)
+        matches = sorted(matches, key=lambda x: x.distance)
+
+        points1 = np.float64([keypoints1[m.queryIdx].pt for m in matches])
+        points2 = np.float64([keypoints2[m.trainIdx].pt for m in matches])
+
+        if len(points1) < 4:
+            raise Exception("Not enough matches to compute homography.")
+
+        matrix, _ = cv2.estimateAffinePartial2D(points1, points2)
+        if matrix is None:
+            raise Exception("Homography matrix could not be computed.")
+
+        angle = np.arctan2(matrix[1, 0], matrix[0, 0]) * (180 / np.pi)
+        another_frame._rotation_angle = float(angle if angle >= 0 else angle + 360)
+
+        return another_frame._rotation_angle
