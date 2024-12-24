@@ -18,6 +18,7 @@ class Reader:
         self._can_read = True
         is_stream = filepath.startswith("https")
         self._stream = CamGear(source=filepath, stream_mode=is_stream, logging=True).start()
+        self._is_first_read = True
 
     def __del__(self):
         self._stream.stop()
@@ -36,11 +37,17 @@ class Reader:
             self._frame_index += 1
         self._is_skipped = True
 
+    def _emit_start(self) -> None:
+        if self._is_first_read:
+            self._is_first_read = False
+            config.update_global_event_time()
+
     def read(self, sec: int) -> List[stream.Frame]:
         if not self._can_read:
             raise Exception("Cannot read stream")
 
         self._skip_read()
+        self._emit_start()
 
         frame_buffer: List[stream.Frame] = []
         for i in range(0, self._fps * sec):
@@ -52,6 +59,8 @@ class Reader:
 
             frame_buffer.append(stream.Frame(frame, self._frame_index))
             self._frame_index += 1
+
+        config.add_global_event_time(sec)
 
         return frame_buffer
 

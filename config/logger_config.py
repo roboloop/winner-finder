@@ -1,9 +1,34 @@
 import logging
+import time
 
 import colorlog
 
-def setup_logger(level=logging.DEBUG):
+global_event_time = time.time()
+
+
+class DynamicAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        extra = kwargs.get("extra", {})
+        extra_str = " ".join([f"{key}={value}" for key, value in extra.items()])
+        msg = f"{msg} {extra_str}" if extra_str else msg
+
+        return msg, kwargs
+
+
+class TimeDeltaFilter(logging.Filter):
+    def filter(self, record):
+        # Calculate the time difference in seconds from the global event
+        current_time = time.time()
+        delta_time = current_time - global_event_time
+        record.time_since_event = delta_time
+        return True
+
+
+def setup_logger(level=logging.DEBUG) -> DynamicAdapter:
     logger = logging.getLogger("logger")
+    if logger.hasHandlers():
+        return DynamicAdapter(logger, {})
+
     logger.setLevel(level)
 
     formatter = colorlog.ColoredFormatter(
@@ -26,5 +51,16 @@ def setup_logger(level=logging.DEBUG):
     console_handler.setFormatter(formatter)
 
     logger.addHandler(console_handler)
+    logger.addFilter(TimeDeltaFilter())
 
-    return logger
+    return DynamicAdapter(logger, {})
+
+
+def update_global_event_time() -> None:
+    global global_event_time
+    global_event_time = time.time()
+
+
+def add_global_event_time(sec: int) -> None:
+    global global_event_time
+    global_event_time += sec
