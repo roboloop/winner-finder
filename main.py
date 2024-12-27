@@ -5,10 +5,11 @@ import math
 import queue
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
+from typing import List, Optional
 
 import config
 import stream
+import utils
 
 logger = config.setup_logger(level=logging.INFO)
 
@@ -55,6 +56,27 @@ def handle_all_assets() -> None:
     task_queue.join()
     print("All tasks completed.")
 
+def handle_spin_frames() -> None:
+    min_sec = 30
+    max_sec = 180
+    print('spin,' + ','.join(f'{num}' for num in range(min_sec, max_sec)))
+    for spins in range(1, round(max_sec * 270 / 360 / 2)):
+        path = spins * 360.0
+        data = []
+        data.append(spins)
+        for sec in range(min_sec, max_sec):
+            if spins > round(sec * 270 / 360):
+                data.append('')
+                continue
+
+            min_range, max_range = utils.range(sec)
+            y = path / min_range
+            x = utils.calculate_x_gsap(y)
+            idx = x * (60 * sec)
+            data.append(round(idx, 2))
+
+        print(','.join(f'{num}' for num in data))
+
 def main():
     parser = argparse.ArgumentParser(description="Detect largest circle in video or image input.")
     subparsers = parser.add_subparsers(dest="command", help="Sub-commands help")
@@ -77,6 +99,10 @@ def main():
     if args.command == "utils":
         if args.sub == "handle_all_assets":
             handle_all_assets()
+            return
+
+        if args.sub == "handle_spin_frames":
+            handle_spin_frames()
             return
 
     parser.print_help()
