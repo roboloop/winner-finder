@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import List, Optional
+from typing import List, Optional, Dict
+
+import numpy as np
 
 import config
 import stream
@@ -92,6 +94,38 @@ class Segment:
         sec = math.ceil(max(first_wheel_frames - len(self._first_spins_buffer), 0) / self._reader.fps)
         self._first_spins_buffer.extend(self._reader.read(sec))
 
+    def _filter_anomalies_linear(self, predicted_angles: List[float], deviation: float) -> float:
+        filtered = []
+        mean = np.mean(predicted_angles)
+        deviations = np.abs(np.array(predicted_angles) - mean)
+        threshold = np.mean(deviations)
+        for j in range(len(predicted_angles)):
+            if deviations[j] <= threshold and abs(predicted_angles[j] - mean) <= deviation:
+                filtered.append(predicted_angles[j])
+
+        if len(filtered) == 0:
+            raise Exception(f"mean is nan. angle set: {predicted_angles}")
+
+        return float(np.mean(filtered))
+
+    def _calc_mean_angle(self, length: int, angles_window: List[(int, float)]) -> Optional[float]:
+        predicted_angles: List[float] = []
+        for idx, angle in angles_window:
+            x = idx / (self._reader.fps * length)
+            y = utils.calculate_y_gsap(x)
+            min_range, max_range = utils.range(length)
+            predicted_spins = math.ceil((y * min_range - angle) / 360)
+            predicted_angle = ((angle + predicted_spins * 360) / y) % 360
+            predicted_angles.append(predicted_angle)
+
+        try:
+            mean_angle = self._filter_anomalies_linear(predicted_angles, 2.5)
+            return mean_angle
+        except Exception as e:
+            logger.warning(f"[{length}s] fail to calculate the mean", extra={"e": e})
+
+        return None
+
     def detect_winner(self):
         length = self._detect_length()
         self._populate_first_spins_with_length(length)
@@ -106,9 +140,15 @@ class Segment:
         skipped_frames = 0
 
         buffer = self._first_spins_buffer
+        predicted_angles = {}
         angles_window: List[(int, float)] = []
+        prev_mean_angle = {}
 
         logger.info(f"Skipping {round(max_skip_frames / self._reader.fps, 2)}s")
+
+        # optimization
+        # self._reader.skip(math.ceil(max_skip_frames / self._reader.fps))
+        # skipped_frames = max_skip_frames
 
         while True:
             for frame in buffer:
@@ -119,11 +159,36 @@ class Segment:
 
                 # Collect a window with angles. The size of window is config.ANGLE_WINDOW_LEN
                 try:
+                    if config.NASTY_OPTIMIZATION:
+                        frame.force_set_wheel(self._init_frame.wheel)
                     angle = self._init_frame.calculate_rotation_with(frame)
                     angles_window.append((idx, angle,))
                 except Exception as e:
                     logger.error("cannot calculate angle", extra={"frame_id": idx, "e": e})
+
+                    angles_window = []
+                    max_skip_frames += config.CALCULATION_STEP
                     continue
+
+                if len(angles_window) <= config.ANGLE_WINDOW_LEN:
+                    continue
+
+                # Examine each length candidate and drop
+                mean_angle = self._calc_mean_angle(length, angles_window)
+                if mean_angle is None:
+                    continue
+
+
+                logger.info(
+                    f"mean_angle: {mean_angle}",
+                    extra={
+                        "sec": f"{int(idx / self._reader.fps)} ({round(idx / (self._reader.fps * length) * 100, 2)}%)",
+                        "angle": f"{round(mean_angle, 2)}",
+                    },
+                )
+
+                max_skip_frames += config.CALCULATION_STEP
+                angles_window = []
 
             if idx >= max_read_frames:
                 break
