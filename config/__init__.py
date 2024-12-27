@@ -1,5 +1,6 @@
 from .config import (
     ASK_LENGTH,
+    NASTY_OPTIMIZATION,
     READ_STEP,
     SPIN_BUFFER_SIZE,
     MIN_SKIP_OF_WHEEL_SPIN,
@@ -17,6 +18,7 @@ __all__ = [
     "SPIN_BUFFER_SIZE",
     "MIN_SKIP_OF_WHEEL_SPIN",
     "MIN_SKIP_SEC",
+    "NASTY_OPTIMIZATION",
     "ASK_LENGTH",
     "TESSERACT_LANG",
     "VISUALIZATION_ENABLED",
