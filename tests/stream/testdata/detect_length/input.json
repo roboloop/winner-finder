@@ -1,0 +1,103 @@
+[
+  {
+    "path": "m4.png",
+    "length": 69
+  },
+  {
+    "path": "m3.png",
+    "length": 69
+  },
+  {
+    "path": "m2.png",
+    "length": 69
+  },
+  {
+    "path": "m1.png",
+    "length": 69
+  },
+  {
+    "path": "l6.png",
+    "length": 120
+  },
+  {
+    "path": "l5.png",
+    "length": 120
+  },
+  {
+    "path": "l4.png",
+    "length": 120
+  },
+  {
+    "path": "l3.png",
+    "length": 120
+  },
+  {
+    "path": "l2.png",
+    "length": 120
+  },
+  {
+    "path": "f6.png",
+    "length": 120
+  },
+  {
+    "path": "f5.png",
+    "length": 120
+  },
+  {
+    "path": "f4.png",
+    "length": 120
+  },
+  {
+    "path": "f3.png",
+    "length": 120
+  },
+  {
+    "path": "f2.png",
+    "length": 120
+  },
+  {
+    "path": "f1.png",
+    "length": 120
+  },
+  {
+    "path": "e10.png",
+    "length": 333
+  },
+  {
+    "path": "e9.png",
+    "length": 123
+  },
+  {
+    "path": "e8.png",
+    "length": 333
+  },
+  {
+    "path": "e7.png",
+    "length": 123
+  },
+  {
+    "_comment": "oval, not circle",
+    "path": "e3.png",
+    "length": 333
+  },
+  {
+    "path": "e2.png",
+    "length": 333
+  },
+  {
+    "path": "e1.png",
+    "length": 321
+  },
+  {
+    "path": "d5.png",
+    "length": 86
+  },
+  {
+    "path": "d4.png",
+    "length": 67
+  },
+  {
+    "path": "d2.png",
+    "length": 213
+  }
+]
