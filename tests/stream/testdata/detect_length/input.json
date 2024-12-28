@@ -1,5 +1,13 @@
 [
   {
+    "path": "n2.png",
+    "length": 123
+  },
+  {
+    "path": "n1.png",
+    "length": 300
+  },
+  {
     "path": "m4.png",
     "length": 69
   },
@@ -34,6 +42,89 @@
   {
     "path": "l2.png",
     "length": 120
+  },
+  {
+    "path": "k1.png",
+    "length": 20
+  },
+  {
+    "path": "i12.png",
+    "length": 61
+  },
+  {
+    "path": "i11.png",
+    "length": 61
+  },
+  {
+    "path": "i10.png",
+    "length": 61
+  },
+  {
+    "path": "i9.png",
+    "length": 61
+  },
+  {
+    "path": "i8.png",
+    "length": 61
+  },
+  {
+    "path": "i5.png",
+    "length": 61
+  },
+  {
+    "path": "i4.png",
+    "length": 61
+  },
+  {
+    "path": "i3.png",
+    "length": 61
+  },
+  {
+    "path": "i2.png",
+    "length": 61
+  },
+  {
+    "path": "h3.png",
+    "length": 64
+  },
+  {
+    "_comment": "there is no rectangle",
+    "path": "h2.png",
+    "length": 64
+  },
+  {
+    "path": "h1.png",
+    "length": 67
+  },
+  {
+    "_comment": "impossible to detect",
+    "path": "g13.png",
+    "length": 51
+  },
+  {
+    "path": "g12.png",
+    "length": 44
+  },
+  {
+    "path": "g11.png",
+    "length": 72
+  },
+  {
+    "path": "g4.png",
+    "length": 88
+  },
+  {
+    "_comment": "text overlapping",
+    "path": "g3.png",
+    "length": 69
+  },
+  {
+    "path": "g2.png",
+    "length": 71
+  },
+  {
+    "path": "g1.png",
+    "length": 66
   },
   {
     "path": "f6.png",
@@ -99,5 +190,29 @@
   {
     "path": "d2.png",
     "length": 213
+  },
+  {
+    "path": "b4.png",
+    "length": 60
+  },
+  {
+    "path": "b3.png",
+    "length": 60
+  },
+  {
+    "path": "b2.png",
+    "length": 60
+  },
+  {
+    "path": "b1.png",
+    "length": 60
+  },
+  {
+    "path": "a3.png",
+    "length": 40
+  },
+  {
+    "path": "a1.png",
+    "length": 33
   }
 ]
