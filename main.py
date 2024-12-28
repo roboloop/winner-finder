@@ -2,10 +2,15 @@ import argparse
 import json
 import logging
 import math
+import os
 import queue
+import re
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
+
+import numpy as np
+from matplotlib import pyplot as plt
 
 import config
 import stream
@@ -56,6 +61,67 @@ def handle_all_assets() -> None:
     task_queue.join()
     print("All tasks completed.")
 
+
+def handle_visualize_measure() -> None:
+    def _filter_anomalies_linear(x: List[float], y: List[float], window_size: int, deviation: float):
+        filtered_x = []
+        filtered_y = []
+
+        for i in range(0, len(y) - window_size + 1, window_size):
+            window_y = y[i : i + window_size]
+            window_x = x[i : i + window_size]
+
+            filtered = []
+            mean = np.mean(window_y)
+            deviations = np.abs(np.array(window_y) - mean)
+            threshold = np.mean(deviations)
+            for j in range(len(window_y)):
+                if deviations[j] <= threshold and abs(window_y[j] - mean) <= deviation:
+                    filtered.append(window_y[j])
+
+            mean = float(np.mean(filtered))
+
+            filtered_x.append(window_x[-1])
+            filtered_y.append(mean)
+
+        return filtered_x, filtered_y
+
+    filepaths = []
+    for root, dirs, files in os.walk("measure"):
+        for file in files:
+            if file.endswith(".json"):
+                filepaths.append(os.path.join(root, file))
+    parsed_blocks = {}
+    for filepath in filepaths:
+        with open(filepath, "r") as file:
+            key = re.sub(r".*/|\.([^/\\]+)$", "", filepath)
+            parsed_blocks[key] = json.load(file)
+
+    with open("input.json") as file:
+        input = {re.sub(r".*/|\.([^/\\]+)$", "", obj["filepath"]): obj for obj in json.load(file)}
+
+    for key in parsed_blocks:
+        if key != "c2":
+            continue
+        b = parsed_blocks[key]
+        # TODO: Good code
+        filtered_x, filtered_y = _filter_anomalies_linear(b["x"], b["predicted_angle"], 60, 2.5)
+
+        i = input[key]
+        plt.figure(figsize=(12, 6))
+        plt.plot(b["x"], b["predicted_angle"], ".", label="Predicted angle")
+        plt.plot(filtered_x, filtered_y, ".", label="Filtered predicted angle")
+        # plt.plot(b['x'], b['angle'], '.', label='Angle')
+        # plt.plot(filtered_x, filtered_angle, '.', label='Filtered angle')
+        plt.title(f"{i['filepath']} — {i['length']}s")
+        plt.xlabel("x")
+        plt.ylabel("angle")
+        plt.legend()
+        plt.grid()
+        plt.show(block=False)
+    plt.show()
+
+
 def handle_spin_frames() -> None:
     min_sec = 30
     max_sec = 180
@@ -99,6 +165,9 @@ def main():
     if args.command == "utils":
         if args.sub == "handle_all_assets":
             handle_all_assets()
+            return
+        if args.sub == "handle_visualize_measure":
+            handle_visualize_measure()
             return
 
         if args.sub == "handle_spin_frames":
