@@ -22,6 +22,7 @@ TOP_OFFSET = 70
 class Frame:
     _wheel: Optional[np.ndarray]
     _lot_name: Optional[str]
+    _rotation_angle: Optional[float]
     _init_text = ["победитель", "winner"]
 
     def __init__(self, frame: np.ndarray, index: int):
@@ -29,6 +30,7 @@ class Frame:
         self._index = index
         self._wheel = None
         self._lot_name = None
+        self._rotation_angle = None
 
     @property
     def frame(self) -> np.ndarray:
@@ -207,6 +209,7 @@ class Frame:
         ellipse = cv2.fitEllipse(contour)
         (x, y), (major_axis, minor_axis), angle = ellipse
         return abs(major_axis - minor_axis) / max(major_axis, minor_axis) < 0.5
+        # return abs(major_axis - minor_axis) / max(major_axis, minor_axis) < 0.01
 
     def extract_circle_content(self, keep_center: bool) -> np.ndarray:
         center_x, center_y, radius = self.wheel
@@ -229,6 +232,9 @@ class Frame:
         self._wheel = wheel
 
     def calculate_rotation_with(self, another_frame: stream.Frame) -> float:
+        if another_frame._rotation_angle is not None:
+            return another_frame._rotation_angle
+
         gray1 = cv2.cvtColor(self.extract_circle_content(False).copy(), cv2.COLOR_BGR2GRAY)
         gray2 = cv2.cvtColor(another_frame.extract_circle_content(False).copy(), cv2.COLOR_BGR2GRAY)
 
