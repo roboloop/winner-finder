@@ -143,6 +143,64 @@ def handle_spin_frames() -> None:
 
         print(','.join(f'{num}' for num in data))
 
+def handle_length() -> None:
+    with open(os.path.join(os.path.dirname(__file__), "utils/lookup.json")) as file:
+        lookup = json.load(file)
+
+    with open(os.path.join(os.path.dirname(__file__), 'measure/g/g4.json')) as file:
+        measure = json.load(file)
+
+    spins = 0
+    # first angle is around ~2.5°
+    prev_angle = 0
+    prev_y = 0
+    prev_full_angle = 0
+    prev_point_x = {}
+    votes = {}
+    with open('calc.csv', 'w') as file:
+        file.write('x,y,diff_y,spins,full_angle,diff_angle')
+        for sec in range(59, 64):
+            file.write(f',sec_{sec},x,y,point_x')
+            prev_point_x[sec] = 0
+            votes[sec] = 0
+        file.write('\n')
+        for index in range(0, len(measure['x'])):
+            x_origin = measure['x'][index]
+            y_origin = measure['y'][index]
+            angle = measure['angle'][index]
+            if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 30.0:
+                spins += 1
+            prev_angle = angle
+            full_angle = angle + 360.0 * spins
+            diff_y = measure['y'][index] - prev_y
+            diff_angle = full_angle - prev_full_angle
+            prev_full_angle = full_angle
+
+            # lookup_index = int(x_origin * len(lookup))
+            # point = lookup[lookup_index] if lookup_index < len(lookup) else lookup[-1]
+            # point_x = point['x']
+
+            file.write(f'{x_origin},{y_origin},{diff_y},{spins},{full_angle},{diff_angle}')
+
+            fps = 60
+            for sec in range(59, 64):
+                x = (index + 1) / (fps * sec)
+                y = utils.calculate_y_gsap(x)
+
+                lookup_index = int(x * len(lookup))
+                point = lookup[lookup_index] if lookup_index < len(lookup) else lookup[-1]
+                point_x = point['x']
+                if point_x > prev_point_x[sec]:
+                    prev_point_x[sec] = point_x
+                    point_x = 'BREAK'
+
+                else:
+                    point_x = ''
+                file.write(f',,{x},{y},{point_x}')
+
+            file.write('\n')
+
+
 def main():
     parser = argparse.ArgumentParser(description="Detect largest circle in video or image input.")
     subparsers = parser.add_subparsers(dest="command", help="Sub-commands help")
@@ -172,6 +230,10 @@ def main():
 
         if args.sub == "handle_spin_frames":
             handle_spin_frames()
+            return
+
+        if args.sub == "calc":
+            calc()
             return
 
     parser.print_help()
