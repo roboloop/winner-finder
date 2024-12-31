@@ -143,6 +143,172 @@ def handle_spin_frames() -> None:
 
         print(','.join(f'{num}' for num in data))
 
+
+def calc() -> None:
+    with open(os.path.join(os.path.dirname(__file__), "utils/lookup.json")) as file:
+        lookup = json.load(file)
+
+    with open(os.path.join(os.path.dirname(__file__), "input.json")) as file:
+        input = json.load(file)
+
+    def _find_json_files():
+        directory = os.path.join(os.path.dirname(__file__), 'measure')
+        json_files = []
+        for root, _, files in os.walk(directory):
+            for file in files:
+                if file.endswith(".json"):
+                    json_files.append(os.path.join(root, file))
+        return json_files
+
+    lengths = {re.sub(r'\..+$', '', os.path.basename(item['filepath'])): item['length'] for item in input}
+    # print(lengths)
+    # return
+
+    with open(os.path.join(os.path.dirname(__file__), "length.csv"), 'w') as output:
+        # print('path,real')
+        output.write('path,real')
+        for k in range(1, 20, 1):
+            k = round(k / 10.0, 1)
+            output.write(f',{k}')
+        output.write('\n')
+
+        for path in _find_json_files():
+            with open(path) as file:
+                measure = json.load(file)
+
+            short = re.sub(r'^.+?/measure/', '', path)
+            name = re.sub(r'\..+$', '', os.path.basename(path))
+
+            length = lengths[name]
+            output.write(f'{short},{length}')
+            for k in range(1, 20, 1):
+                k = round(k / 10.0, 1)
+                # output.write(f',{k}')
+
+                spins = 0
+                # first angle is around ~2.5°
+                prev_angle = 0
+                prev_y = 0
+                prev_full_angle = 0
+                prev_point_x = {}
+                votes = {}
+
+                seconds = np.arange(30, 181).tolist()
+                second_votes = {}
+                # APPROACH 1 — exclude not matched seconds (NO LOOKBEHIND)
+                for index in range(0, len(measure['x'])):
+                    if index > 1200:
+                        break
+                    angle = measure['angle'][index]
+                    if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 60.0:
+                        spins += 1
+                        data = []
+                        for sec in seconds:
+                            if spins > round(sec * 270 / 360):
+                                data.append('')
+                                continue
+
+                            min_range, max_range = utils.range(sec)
+                            y_min = spins * 360.0 / min_range
+                            x_min = utils.calculate_x_gsap(y_min)
+                            idx_min = x_min * (60 * sec)
+
+                            y_max = spins * 360.0 / max_range
+                            x_max = utils.calculate_x_gsap(y_max)
+                            idx_max = x_max * (60 * sec)
+
+                            # if not (math.floor(idx_max) <= float(index + 1) <= math.ceil(idx_min)):
+                            if not (math.ceil(idx_max) <= float(index + 1) <= math.floor(idx_min)):
+                                seconds.remove(sec)
+
+                            # if math.floor(idx_max)<= float(index + 1) <= math.ceil(idx_min):
+                            if math.ceil(idx_max)<= float(index + 1) <= math.floor(idx_min):
+                                if not sec in second_votes:
+                                    second_votes[sec] = 0
+                                second_votes[sec] += 1
+
+                        # if x_min > 0.20:
+                        #     break
+                    prev_angle = angle
+
+                spins = 0
+                # first angle is around ~2.5°
+                prev_angle = 0
+                # APPROACH 2 — LOOKING FOR THE SPIKES IN THE GSAP IMPLEMENTATION
+                for index in range(0, len(measure['x'])):
+                    x_origin = measure['x'][index]
+                    y_origin = measure['y'][index]
+                    angle = measure['angle'][index]
+                    if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 60.0:
+                        spins += 1
+                    prev_angle = angle
+                    full_angle = angle + 360.0 * spins
+                    diff_y = measure['y'][index] - prev_y
+                    diff_angle = full_angle - prev_full_angle
+
+                    fps = 60
+                    # for sec in range(length - 3, length + 4):
+                    # b = [(key, second_votes[key]) for key in second_votes]
+                    # seconds = [i for i, _ in sorted(b, key=lambda x: x[1], reverse=True)[:3]]
+
+                    for sec in seconds:
+                        x = (index + 1) / (fps * sec)
+                        y = utils.calculate_y_gsap(x)
+
+                        lookup_index = int(x * len(lookup))
+                        point = lookup[lookup_index] if lookup_index < len(lookup) else lookup[-1]
+                        point_x = point['x']
+                        if not sec in prev_point_x:
+                            prev_point_x[sec] = 0
+
+                        if point_x > prev_point_x[sec]:
+                            prev_point_x[sec] = point_x
+                            point_x = 'BREAK'
+
+                            min_index = max(0, index - 5)
+                            last_angles = measure['angle'][min_index:index+2]
+                            last_diffs = []
+                            for i in range(1, len(last_angles)):
+                                last_diffs.append((last_angles[i] + 360.0 - last_angles[i - 1]) % 360.0)
+
+                            mean = np.mean(last_diffs)
+                            std_dev = np.std(last_diffs, ddof=0)
+                            upper_bound = mean + k * std_dev
+
+                            if diff_angle > upper_bound:
+                                if not sec in votes:
+                                    votes[sec] = 0
+                                votes[sec] += 1
+
+
+
+                            mean = np.mean(last_diffs)
+                            deviations = np.abs(np.array(last_diffs) - mean)
+                            threshold = np.mean(deviations)
+                            if not (deviations[-1] <= threshold and abs(last_diffs[-1] - mean) <= k):
+                                if not sec in votes:
+                                    votes[sec] = 0
+                                votes[sec] += 1
+
+                            # if len(filtered) == 0:
+                            #     raise Exception(f"mean is nan. angle set: {predicted_angles}")
+                            #
+                            # return float(np.mean(filtered))
+
+                    prev_full_angle = full_angle
+                    if x_origin > 0.10:
+                        break
+
+                # if len(votes) > 0:
+                max_votes = max(votes, key=votes.get) if len(votes) > 0 else '-'
+                output.write(f',{max_votes}')
+                # second_votes = sorted(second_votes, reverse=True)
+
+                print(f'short: {short}, k: {k}, length: {length}, seconds: {seconds}, votes: {second_votes}')
+
+            output.write('\n')
+
+
 def handle_length() -> None:
     with open(os.path.join(os.path.dirname(__file__), "utils/lookup.json")) as file:
         lookup = json.load(file)
