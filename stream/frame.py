@@ -170,6 +170,131 @@ class Frame:
 
         return length
 
+    def _extract_raw_lines(self) -> np.ndarray:
+        image = self.extract_circle_content(True)
+        height, width = image.shape[:2]
+        mask = np.ones((height, width), dtype=np.uint8) * 255
+
+        # fill out the text on the wheel
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        for i, contour in enumerate(contours):
+            x, y, w, h = cv2.boundingRect(contour)
+            # filter out the contour that may contain text
+            if w + h < 60:
+                cv2.drawContours(mask, contours, i, 0, thickness=cv2.FILLED)
+
+        # fill out the circle center on the wheel and around that center space to avoid collisions
+        _, _, radius = self._wheel
+        cv2.circle(mask, (radius, radius), int(0.5 * radius), 0, thickness=cv2.FILLED)
+
+        # mask is ready, apply to the image to extact lines
+        masked = cv2.bitwise_and(image, image, mask=mask)
+        masked_gray = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
+        _, masked_thresh = cv2.threshold(masked_gray, 215, 255, cv2.THRESH_BINARY)
+
+        return cv2.HoughLinesP(masked_thresh, 1, np.pi / 180, 100, minLineLength=75, maxLineGap=10)
+
+    def _handle_raw_lines(self, lines: np.ndarray, radius: int) -> List[tuple[np.ndarray, float, float, np.ndarray]]:
+        cx, cy = radius, radius
+
+        def _to_line_payload(line: np.ndarray) -> Optional[tuple[np.ndarray, float, float]]:
+            x1, y1, x2, y2 = line[0]
+            # Line equation: ax + by + c = 0
+            a = y2 - y1
+            b = x1 - x2
+            c = x2 * y1 - x1 * y2
+            distance_to_center = abs(a * cx + b * cy + c) / math.sqrt(a**2 + b**2)
+            if distance_to_center > 5.0:
+                return None
+
+            d1 = math.sqrt((x1 - cx) ** 2 + (y1 - cy) ** 2)
+            d2 = math.sqrt((x2 - cx) ** 2 + (y2 - cy) ** 2)
+            farthest_x, farthest_y = (x1, y1) if d1 > d2 else (x2, y2)
+            angle = math.atan2(farthest_y - cy, farthest_x - cx)
+
+            return line[0], distance_to_center, angle
+
+        def _to_prolong_line(line: np.ndarray) -> np.ndarray:
+            x1, y1, x2, y2 = line
+            x_end, y_end = (
+                (x2, y2) if ((x1 - cx) ** 2 + (y1 - cy) ** 2) < ((x2 - cx) ** 2 + (y2 - cy) ** 2) else (x1, y1)
+            )
+
+            dx, dy = x_end - cx, y_end - cy
+            length = math.sqrt(dx**2 + dy**2)
+            direction_x, direction_y = dx / length, dy / length
+
+            new_x = cx + radius * direction_x
+            new_y = cy + radius * direction_y
+
+            return np.array([cx, cy, int(new_x), int(new_y)])
+
+        def _uniq_lines(
+            line_payloads: List[tuple[np.ndarray, float, float]]
+        ) -> List[tuple[np.ndarray, float, float, np.ndarray]]:
+            line_payloads.sort(key=lambda p: (p[2], p[1]))
+
+            groups = []
+            current_group = [line_payloads[0]]
+            for i in range(1, len(line_payloads)):
+                prev_slope = current_group[-1][2]
+                current_slope = line_payloads[i][2]
+
+                # 0.01 radian ~ 0.57°
+                if abs(current_slope - prev_slope) < 0.01:
+                    current_group.append(line_payloads[i])
+                else:
+                    groups.append(current_group)
+                    current_group = [line_payloads[i]]
+            groups.append(current_group)
+
+            uniq_lines_: List[tuple[np.ndarray, float, float, np.ndarray]] = []
+            for group in groups:
+                closest_line = min(group, key=lambda p: p[1])  # Line with the smallest distance
+                a, b, c = closest_line
+                d = _to_prolong_line(a)
+                uniq_lines_.append((a, b, c, d))
+
+            return uniq_lines_
+
+        not_filtered_line_payloads = map(_to_line_payload, lines)
+        line_payloads = list(filter(lambda p: p is not None, not_filtered_line_payloads))
+
+        return _uniq_lines(line_payloads)
+
+    def extract_sectors(self) -> List[tuple[float, float]]:
+        _, _, radius = self.wheel
+        raw_lines = self._extract_raw_lines()
+        handled_lines = self._handle_raw_lines(raw_lines, radius)
+
+        layout = np.zeros_like(self.extract_circle_content(True))
+        utils.draw_lines(layout, raw_lines, "raw lines")
+        utils.draw_lines(layout, [l[0] for l in handled_lines], "filtered raw lines")
+        utils.draw_lines(layout, [l[3] for l in handled_lines], "handled filtered raw lines")
+
+        unsorted_angels = map(lambda l: l[2], handled_lines)
+        angles = sorted(unsorted_angels)
+        sectors: List[tuple[float, float]] = []
+        for i in range(len(angles)):
+            start_angle = angles[i]
+            end_angle = angles[(i + 1) % len(angles)]
+
+            # normalize angle relatively to North (counterclockwise)
+            normalized_start_angle = (3 * math.pi / 2 - start_angle) % (2 * math.pi)
+            normalized_end_angle_deg = (3 * math.pi / 2 - end_angle) % (2 * math.pi)
+
+            start_angle_deg = math.degrees(normalized_start_angle)
+            end_angle_deg = math.degrees(normalized_end_angle_deg)
+
+            sectors.append((end_angle_deg, start_angle_deg))
+
+        sectors.sort(key=lambda a: a[0])
+
+        utils.draw_sectors(layout, radius, sectors, "Sectors")
+
+        return sectors
 
     def is_init_frame(self) -> bool:
         try:

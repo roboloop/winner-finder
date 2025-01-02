@@ -18,6 +18,7 @@ class Segment:
         self._reader = reader
         self._first_spins_buffer: List[stream.Frame] = []
         self._init_frame: Optional[stream.Frame] = None
+        self._circle_sectors: Optional[stream.CircleSectors] = None
 
     def _binary_search(self, segment: List[stream.Frame]) -> Optional[int]:
         low = 0
@@ -108,6 +109,12 @@ class Segment:
 
         return float(np.mean(filtered))
 
+    def _format_lot_name(self, lot: tuple[float, float, str, float]) -> str:
+        percent, synthetic_percent, lot_name, lot_percent = lot
+        synthetic_suffix = f" + {synthetic_percent}%" if synthetic_percent != 0.0 else ""
+
+        return f"{B}[{percent}%{synthetic_suffix}]{E} {G}{lot_name} ({lot_percent}%){E}"
+
     def _calc_mean_angle(self, length: int, angles_window: List[(int, float)]) -> Optional[float]:
         predicted_angles: List[float] = []
         for idx, angle in angles_window:
@@ -130,6 +137,10 @@ class Segment:
         length = self._detect_length()
         self._populate_first_spins_with_length(length)
 
+        sectors = self._init_frame.extract_sectors()
+        self._circle_sectors = stream.CircleSectors(sectors)
+        logger.info(f"Total lots: {len(sectors)}")
+
         idx = 0
         # min_range, max_range = utils.range(length)
         max_read_frames = length * self._reader.fps
@@ -140,7 +151,6 @@ class Segment:
         skipped_frames = 0
 
         buffer = self._first_spins_buffer
-        predicted_angles = {}
         angles_window: List[(int, float)] = []
         prev_mean_angle = {}
 
