@@ -32,11 +32,32 @@ class CircleSectors:
         percentages = [(lot_name, (votes / total) * 100) for lot_name, votes in lot_names.items()]
         sorted_percentages = sorted(percentages, key=lambda x: x[1], reverse=True)
 
-        return " / ".join([f"{lot_name}" for lot_name, percentage in sorted_percentages])
+        return " | ".join([f"{lot_name}" for lot_name, percentage in sorted_percentages])
 
     def _get_sector_stat(self, idx: int) -> tuple[float, float, str, float]:
         votes_percent = (self._votes[idx] / sum(self._votes)) * 100
+        synthetic_percent = 0.0
+        if len(self._lot_names[idx]) == 1:
+            lot_name = next(iter(self._lot_names[idx]))
+            for index, obj in enumerate(self._lot_names):
+                if index == idx:
+                    continue
+                if lot_name in obj:
+                    synthetic_percent += (self._votes[index] / sum(self._votes)) * 100 / len(obj)
+
         start, end = self._sectors[idx]
         lot_percent = (360.0 + end - start) % 360 / 360.0 * 100
 
-        return round(votes_percent, 2), 0, self._format_lot_name(idx), round(lot_percent, 2)
+        return round(votes_percent, 2), round(synthetic_percent, 2), self._format_lot_name(idx), round(lot_percent, 2)
+
+    def most_voted(self) -> List[tuple[float, float, str, float]]:
+        top = 3
+        non_zero_votes = [(i, v) for i, v in enumerate(self._votes) if v > 0]
+        idxs = [i for i, _ in sorted(non_zero_votes, key=lambda x: x[1], reverse=True)[:top]]
+
+        return [self._get_sector_stat(idx) for idx in idxs]
+
+    def by_angle(self, angle: float) -> tuple[float, float, str, float]:
+        idx = self._get_sector_index(angle)
+
+        return self._get_sector_stat(idx)

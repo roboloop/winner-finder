@@ -1,0 +1,229 @@
+[
+  {
+    "_comment": "wrong impl",
+    "path": "n2.png",
+    "sectors": 48
+  },
+  {
+    "path": "n1.png",
+    "sectors": 46
+  },
+  {
+    "_comment": "wrong impl",
+    "path": "m4.png",
+    "sectors": 107
+  },
+  {
+    "path": "m3.png",
+    "sectors": 44
+  },
+  {
+    "path": "m2.png",
+    "sectors": 66
+  },
+  {
+    "path": "m1.png",
+    "sectors": 35
+  },
+  {
+    "path": "l6.png",
+    "sectors": 40
+  },
+  {
+    "path": "l5.png",
+    "sectors": 29
+  },
+  {
+    "path": "l4.png",
+    "sectors": 32
+  },
+  {
+    "path": "l3.png",
+    "sectors": 23
+  },
+  {
+    "path": "l2.png",
+    "sectors": 20
+  },
+  {
+    "path": "k1.png",
+    "sectors": 3
+  },
+  {
+    "path": "i12.png",
+    "sectors": 18
+  },
+  {
+    "path": "i11.png",
+    "sectors": 12
+  },
+  {
+    "path": "i10.png",
+    "sectors": 10
+  },
+  {
+    "path": "i9.png",
+    "sectors": 10
+  },
+  {
+    "path": "i8.png",
+    "sectors": 17
+  },
+  {
+    "path": "i5.png",
+    "sectors": 22
+  },
+  {
+    "path": "i4.png",
+    "sectors": 21
+  },
+  {
+    "path": "i3.png",
+    "sectors": 20
+  },
+  {
+    "path": "i2.png",
+    "sectors": 22
+  },
+  {
+    "_comment": "ellipse",
+    "path": "h3.png",
+    "sectors": 42
+  },
+  {
+    "_comment": "ellipse",
+    "path": "h2.png",
+    "sectors": 63
+  },
+  {
+    "path": "h1.png",
+    "sectors": 27
+  },
+  {
+    "path": "g13.png",
+    "sectors": 13
+  },
+  {
+    "path": "g12.png",
+    "sectors": 15
+  },
+  {
+    "path": "g11.png",
+    "sectors": 16
+  },
+  {
+    "path": "g4.png",
+    "sectors": 19
+  },
+  {
+    "path": "g3.png",
+    "sectors": 27
+  },
+  {
+    "path": "g2.png",
+    "sectors": 32
+  },
+  {
+    "path": "g1.png",
+    "sectors": 19
+  },
+  {
+    "path": "f6.png",
+    "sectors": 40
+  },
+  {
+    "_comment": "overdose",
+    "path": "f5.png",
+    "sectors": null
+  },
+  {
+    "path": "f4.png",
+    "sectors": 53
+  },
+  {
+    "_comment": "wrong impl",
+    "path": "f3.png",
+    "sectors": 92
+  },
+  {
+    "path": "f2.png",
+    "sectors": 69
+  },
+  {
+    "path": "f1.png",
+    "sectors": 59
+  },
+  {
+    "_comment": "ellipse, noises",
+    "path": "e10.png",
+    "sectors": 32
+  },
+  {
+    "_comment": "noises",
+    "path": "e9.png",
+    "sectors": 9
+  },
+  {
+    "_comment": "ellipse",
+    "path": "e8.png",
+    "sectors": 14
+  },
+  {
+    "path": "e7.png",
+    "sectors": 10
+  },
+  {
+    "_comment": "not circle, ellipse",
+    "path": "e3.png",
+    "sectors": 28
+  },
+  {
+    "path": "e2.png",
+    "sectors": 31
+  },
+  {
+    "_comment": "ellipse",
+    "path": "e1.png",
+    "sectors": 26
+  },
+  {
+    "path": "d5.png",
+    "sectors": 7
+  },
+  {
+    "path": "d4.png",
+    "sectors": 5
+  },
+  {
+    "path": "d2.png",
+    "sectors": 7
+  },
+  {
+    "_comment": "wrong impl",
+    "path": "b4.png",
+    "sectors": 123
+  },
+  {
+    "path": "b3.png",
+    "sectors": 107
+  },
+  {
+    "path": "b2.png",
+    "sectors": 72
+  },
+  {
+    "_comment": "wrong impl",
+    "path": "b1.png",
+    "sectors": 108
+  },
+  {
+    "_comment": "ellipse",
+    "path": "a3.png",
+    "sectors": 16
+  },
+  {
+    "_comment": "ellipse",
+    "path": "a1.png",
+    "sectors": 18
+  }
+]
