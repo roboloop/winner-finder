@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import math
-from typing import List, Optional, Dict
+import os
+import queue
+from typing import List, Optional
 
 import numpy as np
 
@@ -11,6 +14,10 @@ import stream
 import utils
 
 logger = config.setup_logger(level=logging.INFO)
+
+G = "\033[92m"
+B = "\033[94m"
+E = "\033[0m"
 
 
 class Segment:
@@ -94,6 +101,35 @@ class Segment:
         )
         sec = math.ceil(max(first_wheel_frames - len(self._first_spins_buffer), 0) / self._reader.fps)
         self._first_spins_buffer.extend(self._reader.read(sec))
+
+    def _add_lot_names_around(self, angle: float, length: int) -> None:
+        min_range, max_range = utils.range(length)
+        angles = [angle + spins * 360.0 for spins in range(0, config.SPIN_BUFFER_SIZE)]
+
+        task_queue = queue.Queue()
+
+        for angle in angles:
+            start_frame_id = math.floor(utils.calculate_x_gsap(angle / max_range) * self._reader.fps * length)
+            end_frame_id = math.ceil(utils.calculate_x_gsap(angle / min_range) * self._reader.fps * length)
+
+            for frame_id in range(start_frame_id, end_frame_id):
+                frame = self._first_spins_buffer[frame_id]
+                task_queue.put(frame)
+
+        def _worker(task_queue: queue.Queue) -> None:
+            while not task_queue.empty():
+                frame = task_queue.get()
+                lot_name = frame.detect_lot_name()
+                frame_angle = self._init_frame.calculate_rotation_with(frame)
+                self._circle_sectors.add_lot_name(frame_angle, lot_name)
+                task_queue.task_done()
+
+        max_workers = os.cpu_count() - 1
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for _ in range(max_workers):
+                executor.submit(_worker, task_queue)
+
+        task_queue.join()
 
     def _filter_anomalies_linear(self, predicted_angles: List[float], deviation: float) -> float:
         filtered = []
@@ -184,18 +220,48 @@ class Segment:
                     continue
 
                 # Examine each length candidate and drop
-                mean_angle = self._calc_mean_angle(length, angles_window)
-                if mean_angle is None:
-                    continue
+                for length in length_candidates:
+                    mean_angle = self._calc_mean_angle(length, angles_window)
+                    if mean_angle is None:
+                        continue
 
+                    # Remove the candidate if it doesn't fit to the final angle
+                    if length in prev_mean_angle:
+                        diff = abs(mean_angle - prev_mean_angle[length])
+                        if min(diff, 360.0 - diff) > config.MAX_MEAN_ANGLE_DELTA:
+                            length_candidates.remove(length)
+                            logger.error(f"Looks like the length {length}s was detected incorrectly. Remove it from the candidates.")
+                            # if only one left, use it as the main length
+                            if len(length_candidates) == 1:
+                                max_read_frames = length_candidates[0] * self._reader.fps
+                                logger.info(f"The length is: {length_candidates[0]}")
+                    prev_mean_angle[length] = mean_angle
 
-                logger.info(
-                    f"mean_angle: {mean_angle}",
-                    extra={
-                        "sec": f"{int(idx / self._reader.fps)} ({round(idx / (self._reader.fps * length) * 100, 2)}%)",
-                        "angle": f"{round(mean_angle, 2)}",
-                    },
-                )
+                if len(length_candidates) == 0:
+                    raise Exception("no length candidates have left")
+
+                # if only one length candidate has left use it as the main length
+                if len(length_candidates) == 1:
+                    # dirty hack
+                    if length_candidates[0] not in prev_mean_angle:
+                        continue
+                    mean_angle = prev_mean_angle[length_candidates[0]]
+
+                    self._add_lot_names_around(mean_angle, length)
+                    self._circle_sectors.vote(mean_angle)
+                    most_voted = self._circle_sectors.most_voted()
+                    most_voted_formatted = "\n".join(
+                        [f"{i+1}. {self._format_lot_name(winner)}" for i, winner in enumerate(most_voted)]
+                    )
+
+                    by_angle = self._circle_sectors.by_angle(mean_angle)
+                    logger.info(
+                        f"Last voted: {self._format_lot_name(by_angle)}\nMost voted:\n{most_voted_formatted}",
+                        extra={
+                            "sec": f"{int(idx / self._reader.fps)} ({round(idx / (self._reader.fps * length) * 100, 2)}%)",
+                            "angle": f"{round(mean_angle, 2)}",
+                        },
+                    )
 
                 max_skip_frames += config.CALCULATION_STEP
                 angles_window = []
