@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 
 import config
+import utils
 
 
 def draw_circle(frame: np.ndarray, circle: np.ndarray, title: str = "Circle") -> None:
@@ -15,15 +16,17 @@ def draw_circle(frame: np.ndarray, circle: np.ndarray, title: str = "Circle") ->
 
 def draw_contours(frame: np.ndarray, contours: np.ndarray, fill: bool = False, title: str = "Contours") -> None:
     image = frame.copy()
+    colors = utils.generate_diverse_colors(len(contours))
     thickness = cv2.FILLED if fill else -1
     for i, contour in enumerate(contours):
-        cv2.drawContours(image, contours, i, (255, 255, 255), thickness)
+        cv2.drawContours(image, contours, i, colors[i], thickness)
 
     visualize(image, title)
 
 
 def draw_lines(frame: np.ndarray, lines: np.ndarray, title: str = "Lines") -> None:
     image = frame.copy()
+    colors = utils.generate_diverse_colors(len(lines))
     for i, line in enumerate(lines):
         if len(line) == 1:
             x1, y1, x2, y2 = line[0]
