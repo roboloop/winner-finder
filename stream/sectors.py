@@ -1,4 +1,5 @@
 import bisect
+import threading
 from typing import List
 
 
@@ -8,6 +9,7 @@ class CircleSectors:
         self._lot_names = [{} for _ in self._sectors]
         self._starts = [start for start, _ in self._sectors]
         self._votes = [0 for _ in self._sectors]
+        self._lock = threading.Lock()
 
     def _get_sector_index(self, angle: float) -> int:
         idx = bisect.bisect_right(self._starts, angle)
@@ -15,9 +17,10 @@ class CircleSectors:
         return idx - 1 if idx > 0 else len(self._starts) - 1
 
     def add_lot_name(self, angle: float, lot_name: str) -> None:
-        idx = self._get_sector_index(angle)
-        lot_names = self._lot_names[idx]
-        lot_names[lot_name] = lot_names[lot_name] + 1 if lot_name in lot_names else 1
+        with self._lock:
+            idx = self._get_sector_index(angle)
+            lot_names = self._lot_names[idx]
+            lot_names[lot_name] = lot_names[lot_name] + 1 if lot_name in lot_names else 1
 
     def vote(self, angle: float) -> None:
         idx = self._get_sector_index(angle)
