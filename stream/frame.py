@@ -121,12 +121,38 @@ class Frame:
                 if not is_inner:
                     filtered_rectangles.append((x1, y1, w1, h1))
 
+            # drop all rectangles that intersect others
+            # keep only with the biggest area.
+            filtered_rectangles = sorted(filtered_rectangles, key=lambda item: item[2] * item[3], reverse=True)
+            final_rectangles = []
+            for rect in filtered_rectangles:
+                x1, y1, h1, w1 = rect
+                if all((x1 + w1 <= x2 or x2 + w2 <= x1 or y1 + h1 <= y2 or y2 + h2 <= y1) for x2, y2, h2, w2 in final_rectangles):
+                    final_rectangles.append(rect)
+
+            # keep rectangles from the left to the right
+            final_rectangles = sorted(final_rectangles, key=lambda item: item[0])
+
+            # if there are only 3 rectangles: Крутимся, От и До, then it was not successful
+            if len(final_rectangles) == 3:
+                raise Exception("range length was detected")
 
             # if there are only 2 rectangles: Крутимся и Длительность, then it was successful
-            if len(filtered_rectangles) == 2:
+            if len(final_rectangles) == 2:
                 # x, y, w, h = max(final_rectangles, key=lambda item: item[1])
-                x, y, w, h = filtered_rectangles[1]
+                x, y, w, h = final_rectangles[1]
                 return block_roi[y + 8 : y + h - 8, x + 5 : x + w - 5]
+
+            # if there is only one rectangle: Крутимся, then look to the left
+            if len(final_rectangles) == 1:
+                x, y, w, h = final_rectangles[0]
+                if (
+                    y + 8 < block_roi.shape[0]
+                    and y + h - 8 <= block_roi.shape[0]
+                    and x + w + 20 < block_roi.shape[1]
+                    and x + w + 20 + 50 <= block_roi.shape[1]
+                ):
+                    return block_roi[y + 8 : y + h - 8, x + w + 20 : x + w + 20 + 50]
 
         raise Exception("length roi wasn't found")
 
