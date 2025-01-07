@@ -5,7 +5,7 @@ import logging
 import math
 import os
 import queue
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import numpy as np
 
@@ -52,6 +52,14 @@ class Segment:
             return length
         except Exception as e:
             logger.error(f"The length wasn't detected via screen parsing: {e}")
+
+        if config.SPIN_DETECT_LENGTH:
+            try:
+                length = self._populate_first_n_spins(config.SPIN_BUFFER_SIZE_FOR_LENGTH_DETECTION)
+                logger.info(f"Length was detected via wheel spin: {length}")
+                return length
+            except Exception as e:
+                logger.error(f"The length wasn't detected via wheel spin: {e}")
 
         if config.ASK_LENGTH:
             # Manual enter
@@ -101,6 +109,102 @@ class Segment:
         )
         sec = math.ceil(max(first_wheel_frames - len(self._first_spins_buffer), 0) / self._reader.fps)
         self._first_spins_buffer.extend(self._reader.read(sec))
+
+    def _populate_first_n_spins(self, max_spins: int) -> int:
+        def _binary_search(part: List[stream.Frame]) -> Optional[int]:
+            low = 0
+            high = len(part) - 1
+            while low <= high:
+                mid = (low + high) // 2
+                # if mid == len(part) - 1:
+                #     return mid
+                if mid == 0:
+                    return None
+                angle = self._init_frame.calculate_rotation_with(part[mid])
+                prev_angle = self._init_frame.calculate_rotation_with(part[mid - 1])
+                if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 60.0:
+                    return mid
+
+                if angle > self._init_frame.calculate_rotation_with(part[-1]):
+                    low = mid + 1
+                else:
+                    high = mid - 1
+
+            return None
+
+        def _find_new_spin_frame(part: List[stream.Frame], reverse: bool) -> int:
+            iteration = range(1, len(part)) if reverse is False else range(len(part) - 1, 0, -1)
+            for i in iteration:
+                angle = self._init_frame.calculate_rotation_with(part[i])
+                prev_angle = self._init_frame.calculate_rotation_with(part[i - 1])
+                if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 60.0:
+                    return i
+
+            raise Exception("there is no new spin")
+
+        def _exclude_not_matched_second(buffer: List[stream.Frame], index: int, idx: int, seconds: List[int]):
+            part_behind = buffer[max(0, index - config.FRAMES_STEP_FOR_LENGTH_DETECTION):index + 1]
+            new_spin_index = _find_new_spin_frame(part_behind, True)
+            new_spin_idx = idx - (len(part_behind) - new_spin_index - 1)
+
+            for sec in seconds:
+                if spins > round(sec * 270 / 360):
+                    logger.error('there is no point to look further', extra={"sec": sec, "spins": spins})
+                    continue
+
+                min_range, max_range = utils.range(sec)
+                y_min = spins * 360.0 / min_range
+                x_min = utils.calculate_x_gsap(y_min)
+                idx_min = x_min * (60 * sec)
+
+                y_max = spins * 360.0 / max_range
+                x_max = utils.calculate_x_gsap(y_max)
+                idx_max = x_max * (60 * sec)
+
+                if not (math.floor(idx_max) <= float(new_spin_idx) <= math.ceil(idx_min)):
+                    seconds.remove(sec)
+
+        if len(self._first_spins_buffer) == 0:
+            self._populate_first_spins()
+
+        idx = 0
+        spins = 0
+        prev_angle = 0.0
+        starts, ends = config.EXCLUDE_SECONDS_RANGE
+        seconds = np.arange(starts, ends + 1).tolist()
+
+        for index, frame in enumerate(self._first_spins_buffer):
+            if len(self._first_spins_buffer) - 1 == index:
+                self._first_spins_buffer.extend(self._reader.read(config.READ_STEP))
+
+            idx += 1
+            if idx % config.FRAMES_STEP_FOR_LENGTH_DETECTION != 0:
+                continue
+
+            try:
+                if config.NASTY_OPTIMIZATION:
+                    frame.force_set_wheel(self._init_frame.wheel)
+                angle = self._init_frame.calculate_rotation_with(frame)
+            except Exception as e:
+                logger.error("cannot calculate angle", extra={"frame_id": idx, "e": e})
+                continue
+
+            if angle < prev_angle:
+                spins += 1
+                _exclude_not_matched_second(self._first_spins_buffer, index, idx, seconds)
+                if spins > max_spins or idx > 600:
+                    break
+                if len(seconds) == 1:
+                    logger.info("Only one length candidate has left")
+                    break
+            prev_angle = angle
+
+        if len(seconds) == 0:
+            raise Exception(f"There are no length candidates")
+
+        seconds.sort()
+
+        return seconds
 
     def _add_lot_names_around(self, angle: float, length: int) -> None:
         min_range, max_range = utils.range(length)
@@ -171,7 +275,14 @@ class Segment:
 
     def detect_winner(self):
         length = self._detect_length()
-        self._populate_first_spins_with_length(length)
+        min_length, max_length, length_candidates = length, length, [length]
+        if not isinstance(length, int):
+            min_length, max_length = min(length), max(length)
+            length_candidates = length
+            length_candidates = sorted(set(l for length in length_candidates for l in range(length - 1, length + 1)))
+            logger.info(f"Speculate the possible length: {length_candidates}")
+
+        self._populate_first_spins_with_length(max_length)
 
         sectors = self._init_frame.extract_sectors()
         self._circle_sectors = stream.CircleSectors(sectors)
@@ -179,14 +290,16 @@ class Segment:
 
         idx = 0
         # min_range, max_range = utils.range(length)
-        max_read_frames = length * self._reader.fps
+        max_read_frames = min_length * self._reader.fps
         max_skip_frames = max(
-            self._reader.fps * config.MIN_SKIP_OF_WHEEL_SPIN * length,
+            self._reader.fps * config.MIN_SKIP_OF_WHEEL_SPIN * max_length,
             self._reader.fps * config.MIN_SKIP_SEC
         )
         skipped_frames = 0
 
         buffer = self._first_spins_buffer
+        # predicted_angles = {length: [] for length in length_candidates}
+        # predicted_angles = {}
         angles_window: List[(int, float)] = []
         prev_mean_angle = {}
 
