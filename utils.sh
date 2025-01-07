@@ -201,17 +201,30 @@ _extract_frames() {
 }
 
 extract_length_frames() {
-  output_dir="$script_dir/detect_length"
+  output_dir="$script_dir/tests/stream/testdata/detect_length"
   mkdir -p "$output_dir"
 
   _extract_frames "$output_dir" 0
 }
 
 extract_init_frames() {
-  output_dir="$script_dir/extract_sectors"
+  output_dir="$script_dir/tests/stream/testdata/extract_sectors"
   mkdir -p "$output_dir"
 
   _extract_frames "$output_dir" "-1"
+}
+
+run() {
+  link="$1"
+  streamlink --twitch-disable-ads --twitch-low-latency --stdout "$link" best | python main.py winner
+}
+
+run_vod() {
+  link="$1"
+  offset="${2:-00:00:00}"
+  duration="${3:-00:03:00}"
+  duration="${duration::-1}0"
+  streamlink --hls-start-offset "$offset" --hls-duration "$duration" --stdout "$link" best | python main.py winner
 }
 
 [[ $# -lt 1 ]] && echo "No function was passed" && exit 1
