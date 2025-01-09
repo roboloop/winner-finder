@@ -214,6 +214,44 @@ extract_init_frames() {
   _extract_frames "$output_dir" "-1"
 }
 
+rename() {
+  exec 3>/dev/stdin
+  while read -r filepath; do
+  # echo "$filepath"
+    filename="$(basename "$filepath")"
+    name="${filename%.*}"
+    echo -e "${Y}Start $filepath. Rename to?${E}"
+    IFS= read -r newname <&3
+
+    # substitute
+    contains=$(grep -r --exclude-dir={.git,.idea,.venv,assets} --exclude='*.png' "$name" . || true)
+    if [ -n "$contains" ]; then
+      while read -r filepath2; do
+        cmd="sed -i '' \"s/$name/$newname/g\" \"$filepath2\""
+        echo -e "${G}Run command: ${cmd}${E}"
+        eval "$cmd"
+      done < <(echo "$contains" | awk -F : '{print $1}')
+    else
+      echo -e "${R}No contains: ${filename}${E}"
+    fi
+
+    # rename
+    filepaths=$(find . -type d \( -path './.venv' -o -path './assets' -o -path './.git' \) -prune -o -name "$name.*" -print || true)
+    if [ -n "$filepaths" ]; then
+      while read -r filepath2; do
+        newfilepath2="$(echo "$filepath2" | sed "s/$name/$newname/")"
+        cmd="mv $filepath2 $newfilepath2"
+        echo -e "${G}Run command: ${cmd}${E}"
+        eval "$cmd"
+      done < <(echo "$filepaths")
+    else
+      echo -e "${R}No filepaths: ${filename}${E}"
+    fi
+
+  done < <(find assets -type f \( -name '*.ts' -o -name '*.m4v' -o -name '*.mp4' \) | sort)
+  exec 3>&-
+}
+
 run() {
   link="$1"
   streamlink --twitch-disable-ads --twitch-low-latency --stdout "$link" best | python main.py winner
