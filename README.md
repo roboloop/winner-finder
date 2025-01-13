@@ -57,7 +57,7 @@ black .
 Run the test suite with:
 
 ```shell
-python -m unittest discover
+python -m unittest discover -s tests -t .
 ```
 
 ## TODO list:

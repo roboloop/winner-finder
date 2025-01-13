@@ -177,7 +177,7 @@ class Frame:
 
         length, total = collections.Counter(candidates).most_common(1)[0]
         logger.info("Length candidates", extra={"candidates": candidates})
-        if total < 3:
+        if total < 2:
             raise Exception(f"not enough the candidates of {length}")
 
         return length
