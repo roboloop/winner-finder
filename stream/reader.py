@@ -81,7 +81,9 @@ class Reader:
                     if min(diff, abs(diff - 360)) > 0.01:
                         break
 
-                    logger.warning(f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) looks like a spin but spin delta is low")
+                    logger.warning(
+                        f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) looks like a spin but spin delta is low"
+                    )
                     continue
                 except Exception:
                     pass

@@ -49,9 +49,7 @@ streamlink --twitch-low-latency --stdout <channel link> best | python main.py wi
 Run the following commands to lint your code:
 
 ```shell
-pylint.
 black .
-isort .
 ```
 
 ## Test
