@@ -64,4 +64,5 @@ python -m unittest discover -s tests -t .
 
 - Properly handle ellipsis cases (the wheel isn't always a perfect circle)
 - Choose a more flexible solution for the config
+- Fix GitHub Actions
 - Improve linter setup
