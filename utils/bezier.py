@@ -1,6 +1,6 @@
 from typing import Callable
 
-# https://github.com/Pointauc/pointauc_frontend/blob/310893f1b9e58068a9ece793a4b71a6cd11baea1/src/constants/wheel.ts#L13C1-L14C1
+# https://github.com/Poíntauc/poíntauc_frontend/blob/310893f1b9e58068a9ece793a4b71a6cd11baea1/src/constants/wheel.ts#L13C1-L14C1
 # M0,0,C0.102,0.044,0.171,0.365,0.212,0.542,0.344,0.988,0.808,1,1,1
 x0_1, y0_1 = 0.0, 0.0
 x1_1, y1_1 = 0.102, 0.044

@@ -1,5 +1,5 @@
 def range(length: int) -> tuple[float, float]:
-    # https://github.com/Pointauc/pointauc_frontend/blob/310893f1b9e58068a9ece793a4b71a6cd11baea1/src/components/BaseWheel/BaseWheel.tsx#L147
+    # https://github.com/Poíntauc/poíntauc_frontend/blob/310893f1b9e58068a9ece793a4b71a6cd11baea1/src/components/BaseWheel/BaseWheel.tsx#L147
     min_range = round(length * 270 / 360) * 360
     max_range = min_range + 360
 
