@@ -125,14 +125,14 @@ def handle_visualize_measure() -> None:
 def handle_spin_frames() -> None:
     min_sec = 30
     max_sec = 180
-    print('spin,' + ','.join(f'{num}' for num in range(min_sec, max_sec)))
+    print("spin," + ",".join(f"{num}" for num in range(min_sec, max_sec)))
     for spins in range(1, round(max_sec * 270 / 360 / 2)):
         path = spins * 360.0
         data = []
         data.append(spins)
         for sec in range(min_sec, max_sec):
             if spins > round(sec * 270 / 360):
-                data.append('')
+                data.append("")
                 continue
 
             min_range, max_range = utils.range(sec)
@@ -141,7 +141,7 @@ def handle_spin_frames() -> None:
             idx = x * (60 * sec)
             data.append(round(idx, 2))
 
-        print(','.join(f'{num}' for num in data))
+        print(",".join(f"{num}" for num in data))
 
 
 def calc() -> None:
@@ -152,7 +152,7 @@ def calc() -> None:
         input = json.load(file)
 
     def _find_json_files():
-        directory = os.path.join(os.path.dirname(__file__), 'measure')
+        directory = os.path.join(os.path.dirname(__file__), "measure")
         json_files = []
         for root, _, files in os.walk(directory):
             for file in files:
@@ -160,27 +160,27 @@ def calc() -> None:
                     json_files.append(os.path.join(root, file))
         return json_files
 
-    lengths = {re.sub(r'\..+$', '', os.path.basename(item['filepath'])): item['length'] for item in input}
+    lengths = {re.sub(r"\..+$", "", os.path.basename(item["filepath"])): item["length"] for item in input}
     # print(lengths)
     # return
 
-    with open(os.path.join(os.path.dirname(__file__), "length.csv"), 'w') as output:
+    with open(os.path.join(os.path.dirname(__file__), "length.csv"), "w") as output:
         # print('path,real')
-        output.write('path,real')
+        output.write("path,real")
         for k in range(1, 20, 1):
             k = round(k / 10.0, 1)
-            output.write(f',{k}')
-        output.write('\n')
+            output.write(f",{k}")
+        output.write("\n")
 
         for path in _find_json_files():
             with open(path) as file:
                 measure = json.load(file)
 
-            short = re.sub(r'^.+?/measure/', '', path)
-            name = re.sub(r'\..+$', '', os.path.basename(path))
+            short = re.sub(r"^.+?/measure/", "", path)
+            name = re.sub(r"\..+$", "", os.path.basename(path))
 
             length = lengths[name]
-            output.write(f'{short},{length}')
+            output.write(f"{short},{length}")
             for k in range(1, 20, 1):
                 k = round(k / 10.0, 1)
                 # output.write(f',{k}')
@@ -196,16 +196,16 @@ def calc() -> None:
                 seconds = np.arange(30, 181).tolist()
                 second_votes = {}
                 # APPROACH 1 — exclude not matched seconds (NO LOOKBEHIND)
-                for index in range(0, len(measure['x'])):
+                for index in range(0, len(measure["x"])):
                     if index > 1200:
                         break
-                    angle = measure['angle'][index]
+                    angle = measure["angle"][index]
                     if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 60.0:
                         spins += 1
                         data = []
                         for sec in seconds:
                             if spins > round(sec * 270 / 360):
-                                data.append('')
+                                data.append("")
                                 continue
 
                             min_range, max_range = utils.range(sec)
@@ -222,7 +222,7 @@ def calc() -> None:
                                 seconds.remove(sec)
 
                             # if math.floor(idx_max)<= float(index + 1) <= math.ceil(idx_min):
-                            if math.ceil(idx_max)<= float(index + 1) <= math.floor(idx_min):
+                            if math.ceil(idx_max) <= float(index + 1) <= math.floor(idx_min):
                                 if not sec in second_votes:
                                     second_votes[sec] = 0
                                 second_votes[sec] += 1
@@ -235,15 +235,15 @@ def calc() -> None:
                 # first angle is around ~2.5°
                 prev_angle = 0
                 # APPROACH 2 — LOOKING FOR THE SPIKES IN THE GSAP IMPLEMENTATION
-                for index in range(0, len(measure['x'])):
-                    x_origin = measure['x'][index]
-                    y_origin = measure['y'][index]
-                    angle = measure['angle'][index]
+                for index in range(0, len(measure["x"])):
+                    x_origin = measure["x"][index]
+                    y_origin = measure["y"][index]
+                    angle = measure["angle"][index]
                     if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 60.0:
                         spins += 1
                     prev_angle = angle
                     full_angle = angle + 360.0 * spins
-                    diff_y = measure['y'][index] - prev_y
+                    diff_y = measure["y"][index] - prev_y
                     diff_angle = full_angle - prev_full_angle
 
                     fps = 60
@@ -257,16 +257,16 @@ def calc() -> None:
 
                         lookup_index = int(x * len(lookup))
                         point = lookup[lookup_index] if lookup_index < len(lookup) else lookup[-1]
-                        point_x = point['x']
+                        point_x = point["x"]
                         if not sec in prev_point_x:
                             prev_point_x[sec] = 0
 
                         if point_x > prev_point_x[sec]:
                             prev_point_x[sec] = point_x
-                            point_x = 'BREAK'
+                            point_x = "BREAK"
 
                             min_index = max(0, index - 5)
-                            last_angles = measure['angle'][min_index:index+2]
+                            last_angles = measure["angle"][min_index : index + 2]
                             last_diffs = []
                             for i in range(1, len(last_angles)):
                                 last_diffs.append((last_angles[i] + 360.0 - last_angles[i - 1]) % 360.0)
@@ -279,8 +279,6 @@ def calc() -> None:
                                 if not sec in votes:
                                     votes[sec] = 0
                                 votes[sec] += 1
-
-
 
                             mean = np.mean(last_diffs)
                             deviations = np.abs(np.array(last_diffs) - mean)
@@ -300,20 +298,20 @@ def calc() -> None:
                         break
 
                 # if len(votes) > 0:
-                max_votes = max(votes, key=votes.get) if len(votes) > 0 else '-'
-                output.write(f',{max_votes}')
+                max_votes = max(votes, key=votes.get) if len(votes) > 0 else "-"
+                output.write(f",{max_votes}")
                 # second_votes = sorted(second_votes, reverse=True)
 
-                print(f'short: {short}, k: {k}, length: {length}, seconds: {seconds}, votes: {second_votes}')
+                print(f"short: {short}, k: {k}, length: {length}, seconds: {seconds}, votes: {second_votes}")
 
-            output.write('\n')
+            output.write("\n")
 
 
 def handle_length() -> None:
     with open(os.path.join(os.path.dirname(__file__), "utils/lookup.json")) as file:
         lookup = json.load(file)
 
-    with open(os.path.join(os.path.dirname(__file__), 'measure/g/g4.json')) as file:
+    with open(os.path.join(os.path.dirname(__file__), "measure/g/g4.json")) as file:
         measure = json.load(file)
 
     spins = 0
@@ -323,22 +321,22 @@ def handle_length() -> None:
     prev_full_angle = 0
     prev_point_x = {}
     votes = {}
-    with open('calc.csv', 'w') as file:
-        file.write('x,y,diff_y,spins,full_angle,diff_angle')
+    with open("calc.csv", "w") as file:
+        file.write("x,y,diff_y,spins,full_angle,diff_angle")
         for sec in range(59, 64):
-            file.write(f',sec_{sec},x,y,point_x')
+            file.write(f",sec_{sec},x,y,point_x")
             prev_point_x[sec] = 0
             votes[sec] = 0
-        file.write('\n')
-        for index in range(0, len(measure['x'])):
-            x_origin = measure['x'][index]
-            y_origin = measure['y'][index]
-            angle = measure['angle'][index]
+        file.write("\n")
+        for index in range(0, len(measure["x"])):
+            x_origin = measure["x"][index]
+            y_origin = measure["y"][index]
+            angle = measure["angle"][index]
             if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 30.0:
                 spins += 1
             prev_angle = angle
             full_angle = angle + 360.0 * spins
-            diff_y = measure['y'][index] - prev_y
+            diff_y = measure["y"][index] - prev_y
             diff_angle = full_angle - prev_full_angle
             prev_full_angle = full_angle
 
@@ -346,7 +344,7 @@ def handle_length() -> None:
             # point = lookup[lookup_index] if lookup_index < len(lookup) else lookup[-1]
             # point_x = point['x']
 
-            file.write(f'{x_origin},{y_origin},{diff_y},{spins},{full_angle},{diff_angle}')
+            file.write(f"{x_origin},{y_origin},{diff_y},{spins},{full_angle},{diff_angle}")
 
             fps = 60
             for sec in range(59, 64):
@@ -355,16 +353,16 @@ def handle_length() -> None:
 
                 lookup_index = int(x * len(lookup))
                 point = lookup[lookup_index] if lookup_index < len(lookup) else lookup[-1]
-                point_x = point['x']
+                point_x = point["x"]
                 if point_x > prev_point_x[sec]:
                     prev_point_x[sec] = point_x
-                    point_x = 'BREAK'
+                    point_x = "BREAK"
 
                 else:
-                    point_x = ''
-                file.write(f',,{x},{y},{point_x}')
+                    point_x = ""
+                file.write(f",,{x},{y},{point_x}")
 
-            file.write('\n')
+            file.write("\n")
 
 
 def main():

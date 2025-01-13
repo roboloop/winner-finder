@@ -4,6 +4,4 @@ pytesseract==0.3.13
 vidgear==0.3.3
 colorlog==6.9.0
 matplotlib==3.10.0
-pylint==3.3.2
 black==24.10.0
-isort==5.13.2
