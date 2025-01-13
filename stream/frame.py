@@ -19,6 +19,7 @@ logger = config.setup_logger(level=logging.INFO)
 
 TOP_OFFSET = 70
 
+
 class Frame:
     _wheel: Optional[np.ndarray]
     _lot_name: Optional[str]
@@ -86,7 +87,7 @@ class Frame:
         gray = cv2.cvtColor(text_roi, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 170, 255, cv2.THRESH_BINARY)
 
-        utils.visualize(text_roi, 'text roi before preprocessing')
+        utils.visualize(text_roi, "text roi before preprocessing")
 
         text = pytesseract.image_to_string(thresh, lang=config.TESSERACT_LANG, config="--psm 6")
         logger.info("Lot name was detected", extra={"text": text.strip(), "frame": {self._index}})
@@ -127,7 +128,10 @@ class Frame:
             final_rectangles = []
             for rect in filtered_rectangles:
                 x1, y1, h1, w1 = rect
-                if all((x1 + w1 <= x2 or x2 + w2 <= x1 or y1 + h1 <= y2 or y2 + h2 <= y1) for x2, y2, h2, w2 in final_rectangles):
+                if all(
+                    (x1 + w1 <= x2 or x2 + w2 <= x1 or y1 + h1 <= y2 or y2 + h2 <= y1)
+                    for x2, y2, h2, w2 in final_rectangles
+                ):
                     final_rectangles.append(rect)
 
             # keep rectangles from the left to the right
@@ -173,7 +177,7 @@ class Frame:
 
         length, total = collections.Counter(candidates).most_common(1)[0]
         logger.info("Length candidates", extra={"candidates": candidates})
-        if total < 3:
+        if total < 2:
             raise Exception(f"not enough the candidates of {length}")
 
         return length

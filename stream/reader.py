@@ -73,6 +73,8 @@ class Reader:
 
             last_frame = buffer[-1]
             if last_frame.is_spin_frame():
+                if len(buffer) < 3:
+                    raise Exception("Buffer has less than 3 frames")
                 # Take a frame before the previous one, to avoid a case when two serial frames are the same frames.
                 prev_frame = buffer[-3]
                 try:
@@ -81,7 +83,9 @@ class Reader:
                     if min(diff, abs(diff - 360)) > 0.01:
                         break
 
-                    logger.warning(f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) looks like a spin but spin delta is low")
+                    logger.warning(
+                        f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) looks like a spin but spin delta is low"
+                    )
                     continue
                 except Exception:
                     pass

@@ -5,7 +5,7 @@ import logging
 import math
 import os
 import queue
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -143,13 +143,14 @@ class Segment:
             raise Exception("there is no new spin")
 
         def _exclude_not_matched_second(buffer: List[stream.Frame], index: int, idx: int, seconds: List[int]):
-            part_behind = buffer[max(0, index - config.FRAMES_STEP_FOR_LENGTH_DETECTION):index + 1]
+            part_behind = buffer[max(0, index - config.FRAMES_STEP_FOR_LENGTH_DETECTION) : index + 1]
             new_spin_index = _find_new_spin_frame(part_behind, True)
             new_spin_idx = idx - (len(part_behind) - new_spin_index - 1)
 
+            to_remove = []
             for sec in seconds:
                 if spins > round(sec * 270 / 360):
-                    logger.error('there is no point to look further', extra={"sec": sec, "spins": spins})
+                    logger.error("there is no point to look further", extra={"sec": sec, "spins": spins})
                     continue
 
                 min_range, max_range = utils.range(sec)
@@ -162,7 +163,10 @@ class Segment:
                 idx_max = x_max * (60 * sec)
 
                 if not (math.floor(idx_max) <= float(new_spin_idx) <= math.ceil(idx_min)):
-                    seconds.remove(sec)
+                    to_remove.append(sec)
+
+            for sec in to_remove:
+                seconds.remove(sec)
 
         if len(self._first_spins_buffer) == 0:
             self._populate_first_spins()
@@ -292,8 +296,7 @@ class Segment:
         # min_range, max_range = utils.range(length)
         max_read_frames = min_length * self._reader.fps
         max_skip_frames = max(
-            self._reader.fps * config.MIN_SKIP_OF_WHEEL_SPIN * max_length,
-            self._reader.fps * config.MIN_SKIP_SEC
+            self._reader.fps * config.MIN_SKIP_OF_WHEEL_SPIN * max_length, self._reader.fps * config.MIN_SKIP_SEC
         )
         skipped_frames = 0
 
@@ -321,7 +324,12 @@ class Segment:
                     if config.NASTY_OPTIMIZATION:
                         frame.force_set_wheel(self._init_frame.wheel)
                     angle = self._init_frame.calculate_rotation_with(frame)
-                    angles_window.append((idx, angle,))
+                    angles_window.append(
+                        (
+                            idx,
+                            angle,
+                        )
+                    )
                 except Exception as e:
                     logger.error("cannot calculate angle", extra={"frame_id": idx, "e": e})
 
@@ -343,7 +351,9 @@ class Segment:
                         diff = abs(mean_angle - prev_mean_angle[length])
                         if min(diff, 360.0 - diff) > config.MAX_MEAN_ANGLE_DELTA:
                             length_candidates.remove(length)
-                            logger.error(f"Looks like the length {length}s was detected incorrectly. Remove it from the candidates.")
+                            logger.error(
+                                f"Looks like the length {length}s was detected incorrectly. Remove it from the candidates."
+                            )
                             # if only one left, use it as the main length
                             if len(length_candidates) == 1:
                                 max_read_frames = length_candidates[0] * self._reader.fps

@@ -49,9 +49,7 @@ streamlink --twitch-low-latency --stdout <channel link> best | python main.py wi
 Run the following commands to lint your code:
 
 ```shell
-pylint.
 black .
-isort .
 ```
 
 ## Test
@@ -59,11 +57,12 @@ isort .
 Run the test suite with:
 
 ```shell
-python -m unittest discover
+python -m unittest discover -s tests -t .
 ```
 
 ## TODO list:
 
 - Properly handle ellipsis cases (the wheel isn't always a perfect circle)
 - Choose a more flexible solution for the config
+- Fix GitHub Actions
 - Improve linter setup
