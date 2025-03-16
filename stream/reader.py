@@ -73,6 +73,8 @@ class Reader:
 
             last_frame = buffer[-1]
             if last_frame.is_spin_frame():
+                if len(buffer) < 3:
+                    raise Exception("Buffer has less than 3 frames")
                 # Take a frame before the previous one, to avoid a case when two serial frames are the same frames.
                 prev_frame = buffer[-3]
                 try:

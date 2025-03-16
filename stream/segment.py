@@ -147,6 +147,7 @@ class Segment:
             new_spin_index = _find_new_spin_frame(part_behind, True)
             new_spin_idx = idx - (len(part_behind) - new_spin_index - 1)
 
+            to_remove = []
             for sec in seconds:
                 if spins > round(sec * 270 / 360):
                     logger.error("there is no point to look further", extra={"sec": sec, "spins": spins})
@@ -162,7 +163,10 @@ class Segment:
                 idx_max = x_max * (60 * sec)
 
                 if not (math.floor(idx_max) <= float(new_spin_idx) <= math.ceil(idx_min)):
-                    seconds.remove(sec)
+                    to_remove.append(sec)
+
+            for sec in to_remove:
+                seconds.remove(sec)
 
         if len(self._first_spins_buffer) == 0:
             self._populate_first_spins()
