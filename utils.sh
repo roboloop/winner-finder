@@ -265,7 +265,7 @@ run_vod() {
   streamlink --hls-start-offset "$offset" --hls-duration "$duration" --stdout "$link" best | python main.py winner
 }
 
-[[ $# -lt 1 ]] && echo "No function was passed" && exit 1
+[[ $# -lt 1 ]] && echo "No function passed" && exit 1
 fn="$1"
 shift
 "$fn" "$@"

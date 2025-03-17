@@ -24,7 +24,7 @@ class Frame:
     _wheel: Optional[np.ndarray]
     _lot_name: Optional[str]
     _rotation_angle: Optional[float]
-    _init_text = ["победитель", "winner"]
+    _initial_text = ["winner", "победитель"]
 
     def __init__(self, frame: np.ndarray, index: int):
         self._frame = frame
@@ -89,14 +89,14 @@ class Frame:
 
         utils.visualize(text_roi, "text roi before preprocessing")
 
-        text = pytesseract.image_to_string(thresh, lang=config.TESSERACT_LANG, config="--psm 6")
+        text = pytesseract.image_to_string(thresh, lang=config.TESSERACT_LANGUAGE, config="--psm 6")
         logger.info("Lot name detected", extra={"text": text.strip(), "frame": {self._index}})
 
         self._lot_name = text.strip()
 
         return self._lot_name
 
-    def _find_length_section(self, block_roi: np.ndarray) -> np.ndarray:
+    def _find_duration_block(self, block_roi: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(block_roi, cv2.COLOR_BGR2GRAY)
         # 50 and 100 are heuristics value. For some streams, 5 and 10 should be used instead
         candidates = [(50, 100), (5, 10)]
@@ -139,7 +139,7 @@ class Frame:
 
             # If there are only 3 rectangles: Spin, From и To, then the operation was not successful
             if len(final_rectangles) == 3:
-                raise Exception("Range length detected")
+                raise Exception("Range duration detected")
 
             # If there are only 2 rectangles: Spinning и Duration, then the operation was successful
             if len(final_rectangles) == 2:
@@ -157,9 +157,9 @@ class Frame:
                 ):
                     return block_roi[y + 8 : y + h - 8, x + w + 20 : x + w + 20 + 50]
 
-        raise Exception("Length roi not found")
+        raise Exception("Duration roi not found")
 
-    def _detect_length(self, roi: np.ndarray) -> int:
+    def _detect_duration(self, roi: np.ndarray) -> int:
         candidates = []
         for threshold in range(170, 140, -5):
             _, thresh = cv2.threshold(roi, threshold, 255, cv2.THRESH_BINARY)
@@ -174,14 +174,14 @@ class Frame:
         if len(candidates) == 0:
             raise Exception("No candidates")
 
-        length, total = collections.Counter(candidates).most_common(1)[0]
-        logger.info("Length candidates", extra={"candidates": candidates})
+        duration, total = collections.Counter(candidates).most_common(1)[0]
+        logger.info("Duration candidates", extra={"candidates": candidates})
         if total < 2:
-            raise Exception(f"Not enough candidates of {length}")
+            raise Exception(f"Not enough candidates of {duration}")
 
-        return length
+        return duration
 
-    def detect_length(self) -> int:
+    def detect_duration(self) -> int:
         circle = self.detect_wheel()
 
         center_x, center_y, radius = circle
@@ -191,13 +191,13 @@ class Frame:
         roi_x_end = min(self._frame.shape[1], center_x + radius + radius)
         block_roi = self._frame[roi_y_start:roi_y_end, roi_x_start:roi_x_end]
 
-        utils.visualize(block_roi, "Length section")
-        rect = self._find_length_section(block_roi)
-        utils.visualize(rect, "Cropped length section")
+        utils.visualize(block_roi, "Duration section")
+        rect = self._find_duration_block(block_roi)
+        utils.visualize(rect, "Cropped duration section")
 
-        length = self._detect_length(rect)
+        duration = self._detect_duration(rect)
 
-        return length
+        return duration
 
     def _extract_raw_lines(self) -> np.ndarray:
         image = self.extract_circle_content(True)
@@ -281,7 +281,8 @@ class Frame:
 
             uniq_lines_: List[tuple[np.ndarray, float, float, np.ndarray]] = []
             for group in groups:
-                closest_line = min(group, key=lambda p: p[1])  # Choose the line with the smallest distance to the center
+                # Choose the line with the smallest distance to the center
+                closest_line = min(group, key=lambda p: p[1])
                 a, b, c = closest_line
                 d = _to_prolong_line(a)
                 uniq_lines_.append((a, b, c, d))
@@ -325,7 +326,7 @@ class Frame:
 
         return sectors
 
-    def is_init_frame(self) -> bool:
+    def is_initial_frame(self) -> bool:
         try:
             text = self.detect_lot_name()
         except pytesseract.TesseractNotFoundError:
@@ -335,7 +336,7 @@ class Frame:
             return False
 
         # Searching for the substring 'winner' in the frame to prevent false parsing
-        return any(substring in text.lower() for substring in self._init_text)
+        return any(substring in text.lower() for substring in self._initial_text)
 
     def is_spin_frame(self) -> bool:
         try:
@@ -346,7 +347,7 @@ class Frame:
         except Exception as e:
             return False
 
-        return not any(substring in text.lower() for substring in self._init_text)
+        return not any(substring in text.lower() for substring in self._initial_text)
 
     # TODO: doesn't work right. It finds a strange contours
     def is_circle(self):

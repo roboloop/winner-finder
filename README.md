@@ -30,15 +30,15 @@ The program workflow:
 
     Picking a frame from the spinning sequence:
 
-   - $x_{i} = \frac{l_{i}}{l}$, where `lᵢ` is the elapsed time, and `l` is the total spin duration
+   - $x_{i} = \frac{d_{i}}{d}$, where `dᵢ` is the elapsed time, and `d` is the total spin duration
    - $y_{i} = \frac{a_{i}}{a}$, where `aᵢ` is the elapsed angular displacement (including full rotations) from initial state, and `a` is the target angle
    - $y_{i} = bezier(x_{i})$, where the `bezier` function maps the elapsed time to the corresponding elapsed angle, both normalized to a scale from 0 to 1
-   - The target angle is computed as: $a = \frac{a_{i}}{bezier(\frac{l_{i}}{l})}$
+   - The target angle is computed as: $a = \frac{a_{i}}{bezier(\frac{d_{i}}{d})}$
 
 4. Collecting lot names and their positions on the wheel
 
    - The initial frame is used to determine sector boundaries (collected in format start_angle and end_angle)
-   - The first wheel spin is analyzed to extract sector names (obtained from the text displayed above the wheel)
+   - The initial wheel spin is analyzed to extract sector names (obtained from the text displayed above the wheel)
 
 5. Refining calculations for greater accuracy
 
