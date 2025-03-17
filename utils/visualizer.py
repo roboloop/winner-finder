@@ -37,7 +37,7 @@ def draw_lines(frame: np.ndarray, lines: np.ndarray, title: str = "Lines") -> No
         elif len(line) == 4:
             x1, y1, x2, y2 = line
         else:
-            raise Exception("invalid format")
+            raise Exception("Invalid format")
 
         cv2.line(image, (x1, y1), (x2, y2), colors[i], 1)
 
@@ -89,7 +89,7 @@ def draw_sectors(frame: np.ndarray, radius: int, sectors: List[tuple[float, floa
     deferred_calls = []
     for i, sector in enumerate(sectors):
         start_angle, end_angle = sector
-        # Make a text before normalization
+        # Create the text before normalization
         text = f"{round(start_angle, 2)}-{round(end_angle, 2)}"
 
         denormalized_end_angle_deg = _denormalize_angle(start_angle)
@@ -102,7 +102,7 @@ def draw_sectors(frame: np.ndarray, radius: int, sectors: List[tuple[float, floa
         y = int(radius + radius * 0.8 * np.sin(np.radians(mid_angle)))
         text_angle = -mid_angle if mid_angle <= 90 or mid_angle >= 270 else (180 - mid_angle)
 
-        # draw a conu part
+        # Draw the cone part
         cv2.ellipse(
             image,
             (radius, radius),
@@ -114,7 +114,7 @@ def draw_sectors(frame: np.ndarray, radius: int, sectors: List[tuple[float, floa
             -1,
             cv2.LINE_AA,
         )
-        # the text will be drawn latter
+        # The text will be drawn latter
         deferred_calls.append(partial(_draw_rotated_text, image, text, (x, y), text_angle))
 
     [call() for call in deferred_calls]

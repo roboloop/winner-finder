@@ -71,7 +71,7 @@ class Frame:
             self._wheel = max(circles[0], key=lambda c: c[2])
             return self._wheel
 
-        raise Exception("cannot detect wheel")
+        raise Exception("Cannot detect the wheel")
 
     def detect_lot_name(self) -> str:
         if self._lot_name is not None:
@@ -90,7 +90,7 @@ class Frame:
         utils.visualize(text_roi, "text roi before preprocessing")
 
         text = pytesseract.image_to_string(thresh, lang=config.TESSERACT_LANG, config="--psm 6")
-        logger.info("Lot name was detected", extra={"text": text.strip(), "frame": {self._index}})
+        logger.info("Lot name detected", extra={"text": text.strip(), "frame": {self._index}})
 
         self._lot_name = text.strip()
 
@@ -98,7 +98,7 @@ class Frame:
 
     def _find_length_section(self, block_roi: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(block_roi, cv2.COLOR_BGR2GRAY)
-        # 50 and 100 — heuristics value. For someone's stream 5 and 10 should be used
+        # 50 and 100 are heuristics value. For some streams, 5 and 10 should be used instead
         candidates = [(50, 100), (5, 10)]
         for threshold1, threshold2 in candidates:
             edges = cv2.Canny(gray, threshold1, threshold2)
@@ -107,11 +107,11 @@ class Frame:
             rectangles = []
             for contour in contours:
                 x, y, w, h = cv2.boundingRect(contour)
-                # 70 (50 for the range length) and 28 the min size of the target rectangle
+                # 70 (50 for the range length) and 28 are the minimal dimensions of the target rectangle
                 if w >= 50 and h >= 28:
                     rectangles.append((x, y, w, h))
 
-            # drop all inner rectangles
+            # Drop all inner rectangles
             filtered_rectangles = []
             for i, (x1, y1, w1, h1) in enumerate(rectangles):
                 is_inner = False
@@ -122,8 +122,8 @@ class Frame:
                 if not is_inner:
                     filtered_rectangles.append((x1, y1, w1, h1))
 
-            # drop all rectangles that intersect others
-            # keep only with the biggest area.
+            # Drop all rectangles that intersect others
+            # Keep only the one with the largest area.
             filtered_rectangles = sorted(filtered_rectangles, key=lambda item: item[2] * item[3], reverse=True)
             final_rectangles = []
             for rect in filtered_rectangles:
@@ -134,20 +134,19 @@ class Frame:
                 ):
                     final_rectangles.append(rect)
 
-            # keep rectangles from the left to the right
+            # Keep rectangles from left to right
             final_rectangles = sorted(final_rectangles, key=lambda item: item[0])
 
-            # if there are only 3 rectangles: Крутимся, От и До, then it was not successful
+            # If there are only 3 rectangles: Spin, From и To, then the operation was not successful
             if len(final_rectangles) == 3:
-                raise Exception("range length was detected")
+                raise Exception("Range length detected")
 
-            # if there are only 2 rectangles: Крутимся и Длительность, then it was successful
+            # If there are only 2 rectangles: Spinning и Duration, then the operation was successful
             if len(final_rectangles) == 2:
-                # x, y, w, h = max(final_rectangles, key=lambda item: item[1])
                 x, y, w, h = final_rectangles[1]
                 return block_roi[y + 8 : y + h - 8, x + 5 : x + w - 5]
 
-            # if there is only one rectangle: Крутимся, then look to the left
+            # If there is one rectangle: Spinning, look to the left
             if len(final_rectangles) == 1:
                 x, y, w, h = final_rectangles[0]
                 if (
@@ -158,7 +157,7 @@ class Frame:
                 ):
                     return block_roi[y + 8 : y + h - 8, x + w + 20 : x + w + 20 + 50]
 
-        raise Exception("length roi wasn't found")
+        raise Exception("Length roi not found")
 
     def _detect_length(self, roi: np.ndarray) -> int:
         candidates = []
@@ -173,12 +172,12 @@ class Frame:
             candidates.append(int(matches[0]))
 
         if len(candidates) == 0:
-            raise Exception(f"no candidates")
+            raise Exception("No candidates")
 
         length, total = collections.Counter(candidates).most_common(1)[0]
         logger.info("Length candidates", extra={"candidates": candidates})
         if total < 2:
-            raise Exception(f"not enough the candidates of {length}")
+            raise Exception(f"Not enough candidates of {length}")
 
         return length
 
@@ -205,21 +204,21 @@ class Frame:
         height, width = image.shape[:2]
         mask = np.ones((height, width), dtype=np.uint8) * 255
 
-        # fill out the text on the wheel
+        # Fill out the text on the wheel
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         for i, contour in enumerate(contours):
             x, y, w, h = cv2.boundingRect(contour)
-            # filter out the contour that may contain text
+            # Filter out contours that may contain text
             if w + h < 60:
                 cv2.drawContours(mask, contours, i, 0, thickness=cv2.FILLED)
 
-        # fill out the circle center on the wheel and around that center space to avoid collisions
+        # Fill in the circle center on the wheel and the surrounding space to avoid collisions
         _, _, radius = self._wheel
         cv2.circle(mask, (radius, radius), int(0.5 * radius), 0, thickness=cv2.FILLED)
 
-        # mask is ready, apply to the image to extact lines
+        # Mask is ready, apply it to the image to extract lines
         masked = cv2.bitwise_and(image, image, mask=mask)
         masked_gray = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
         _, masked_thresh = cv2.threshold(masked_gray, 215, 255, cv2.THRESH_BINARY)
@@ -282,7 +281,7 @@ class Frame:
 
             uniq_lines_: List[tuple[np.ndarray, float, float, np.ndarray]] = []
             for group in groups:
-                closest_line = min(group, key=lambda p: p[1])  # Line with the smallest distance
+                closest_line = min(group, key=lambda p: p[1])  # Choose the line with the smallest distance to the center
                 a, b, c = closest_line
                 d = _to_prolong_line(a)
                 uniq_lines_.append((a, b, c, d))
@@ -311,7 +310,7 @@ class Frame:
             start_angle = angles[i]
             end_angle = angles[(i + 1) % len(angles)]
 
-            # normalize angle relatively to North (counterclockwise)
+            # Normalize the angle relative to North (counterclockwise)
             normalized_start_angle = (3 * math.pi / 2 - start_angle) % (2 * math.pi)
             normalized_end_angle_deg = (3 * math.pi / 2 - end_angle) % (2 * math.pi)
 
@@ -330,19 +329,19 @@ class Frame:
         try:
             text = self.detect_lot_name()
         except pytesseract.TesseractNotFoundError:
-            logger.error("Tesseract was not found")
+            logger.error("Tesseract not found")
             raise
         except Exception:
             return False
 
-        # search substring 'победитель' или 'winner' in the frame. This prevents some false parsing
+        # Searching for the substring 'winner' in the frame to prevent false parsing
         return any(substring in text.lower() for substring in self._init_text)
 
     def is_spin_frame(self) -> bool:
         try:
             text = self.detect_lot_name()
         except pytesseract.TesseractNotFoundError:
-            logger.error("Tesseract was not found")
+            logger.error("Tesseract not found")
             raise
         except Exception as e:
             return False
@@ -364,7 +363,6 @@ class Frame:
         ellipse = cv2.fitEllipse(contour)
         (x, y), (major_axis, minor_axis), angle = ellipse
         return abs(major_axis - minor_axis) / max(major_axis, minor_axis) < 0.5
-        # return abs(major_axis - minor_axis) / max(major_axis, minor_axis) < 0.01
 
     def extract_circle_content(self, keep_center: bool) -> np.ndarray:
         center_x, center_y, radius = self.wheel
@@ -405,11 +403,11 @@ class Frame:
         points2 = np.float64([keypoints2[m.trainIdx].pt for m in matches])
 
         if len(points1) < 4:
-            raise Exception("Not enough matches to compute homography.")
+            raise Exception("Not enough matches to compute homography")
 
         matrix, _ = cv2.estimateAffinePartial2D(points1, points2)
         if matrix is None:
-            raise Exception("Homography matrix could not be computed.")
+            raise Exception("Homography matrix could not be computed")
 
         angle = np.arctan2(matrix[1, 0], matrix[0, 0]) * (180 / np.pi)
         another_frame._rotation_angle = float(angle if angle >= 0 else angle + 360)

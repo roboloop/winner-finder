@@ -46,20 +46,19 @@ class Segment:
         self._populate_first_spins()
 
         try:
-            # The first spin frame.
             length = self._first_spins_buffer[0].detect_length()
-            logger.info(f"Length was detected via screen parsing: {length}")
+            logger.info(f"Length detected via screen parsing: {length}")
             return length
         except Exception as e:
-            logger.error(f"The length wasn't detected via screen parsing: {e}")
+            logger.error(f"The length not detected via screen parsing: {e}")
 
         if config.SPIN_DETECT_LENGTH:
             try:
-                length = self._populate_first_n_spins(config.SPIN_BUFFER_SIZE_FOR_LENGTH_DETECTION)
-                logger.info(f"Length was detected via wheel spin: {length}")
+                length = self._populate_first_n_spins()
+                logger.info(f"Length detected via wheel spin: {length}")
                 return length
             except Exception as e:
-                logger.error(f"The length wasn't detected via wheel spin: {e}")
+                logger.error(f"The length not detected via wheel spin: {e}")
 
         if config.ASK_LENGTH:
             # Manual enter
@@ -71,33 +70,31 @@ class Segment:
 
             if response.isdigit():
                 length = int(response)
-                logger.info(f"Length was set to {length}")
+                logger.info(f"Length set to {length}")
 
                 return length
 
-        raise Exception("cannot detect the length")
+        raise Exception("Cannot detect the length")
 
     def _populate_first_spins(self) -> None:
         if len(self._first_spins_buffer) != 0:
             return
 
         buffer = self._reader.read_until_spin_found(config.READ_STEP)
-        logger.info("Spin with a lot name was found")
+        logger.info("Spin with the lot name found")
 
         _init_frame_index = self._binary_search(buffer)
         if _init_frame_index is None:
-            raise Exception("no init frame")
+            raise Exception("No inital frame")
         self._first_spins_buffer = buffer[_init_frame_index + 1 :]
         self._init_frame = buffer[_init_frame_index]
-        logger.info("Init frame was found", extra={"frame": {self._init_frame.index}})
+        logger.info("Initial frame found", extra={"frame": {self._init_frame.index}})
         if self._init_frame.is_circle():
-            logger.error("Circle is ellipse? The result could be vary")
+            logger.error("Circle is an ellipse. Result may vary")
 
         # TODO: why was it added?
         self._init_frame.wheel[2] -= 1
 
-        # if config.NASTY_OPTIMIZATION:
-        #     [frame.force_set_wheel(self._init_frame.wheel) for frame in self._first_spins_buffer]
 
     def _populate_first_spins_with_length(self, length: int) -> None:
         if len(self._first_spins_buffer) == 0:
@@ -110,28 +107,7 @@ class Segment:
         sec = math.ceil(max(first_wheel_frames - len(self._first_spins_buffer), 0) / self._reader.fps)
         self._first_spins_buffer.extend(self._reader.read(sec))
 
-    def _populate_first_n_spins(self, max_spins: int) -> int:
-        def _binary_search(part: List[stream.Frame]) -> Optional[int]:
-            low = 0
-            high = len(part) - 1
-            while low <= high:
-                mid = (low + high) // 2
-                # if mid == len(part) - 1:
-                #     return mid
-                if mid == 0:
-                    return None
-                angle = self._init_frame.calculate_rotation_with(part[mid])
-                prev_angle = self._init_frame.calculate_rotation_with(part[mid - 1])
-                if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 60.0:
-                    return mid
-
-                if angle > self._init_frame.calculate_rotation_with(part[-1]):
-                    low = mid + 1
-                else:
-                    high = mid - 1
-
-            return None
-
+    def _populate_first_n_spins(self) -> int:
         def _find_new_spin_frame(part: List[stream.Frame], reverse: bool) -> int:
             iteration = range(1, len(part)) if reverse is False else range(len(part) - 1, 0, -1)
             for i in iteration:
@@ -140,9 +116,9 @@ class Segment:
                 if angle < prev_angle and abs(360.0 + angle - prev_angle) % 360.0 < 60.0:
                     return i
 
-            raise Exception("there is no new spin")
+            raise Exception("No new spins")
 
-        def _exclude_not_matched_second(buffer: List[stream.Frame], index: int, idx: int, seconds: List[int]):
+        def _exclude_not_matched_seconds(buffer: List[stream.Frame], index: int, idx: int, seconds: List[int]):
             part_behind = buffer[max(0, index - config.FRAMES_STEP_FOR_LENGTH_DETECTION) : index + 1]
             new_spin_index = _find_new_spin_frame(part_behind, True)
             new_spin_idx = idx - (len(part_behind) - new_spin_index - 1)
@@ -150,7 +126,7 @@ class Segment:
             to_remove = []
             for sec in seconds:
                 if spins > round(sec * 270 / 360):
-                    logger.error("there is no point to look further", extra={"sec": sec, "spins": spins})
+                    logger.error("No point to look further", extra={"sec": sec, "spins": spins})
                     continue
 
                 min_range, max_range = utils.range(sec)
@@ -190,21 +166,21 @@ class Segment:
                     frame.force_set_wheel(self._init_frame.wheel)
                 angle = self._init_frame.calculate_rotation_with(frame)
             except Exception as e:
-                logger.error("cannot calculate angle", extra={"frame_id": idx, "e": e})
+                logger.error("Cannot calculate angle", extra={"frame_id": idx, "e": e})
                 continue
 
             if angle < prev_angle:
                 spins += 1
-                _exclude_not_matched_second(self._first_spins_buffer, index, idx, seconds)
-                if spins > max_spins or idx > 600:
+                _exclude_not_matched_seconds(self._first_spins_buffer, index, idx, seconds)
+                if spins > config.SPIN_BUFFER_SIZE_FOR_LENGTH_DETECTION or idx > config.SPIN_DETECTION_FRAMES_LIMIT:
                     break
                 if len(seconds) == 1:
-                    logger.info("Only one length candidate has left")
+                    logger.info("One length candidate left")
                     break
             prev_angle = angle
 
         if len(seconds) == 0:
-            raise Exception(f"There are no length candidates")
+            raise Exception("No length candidates")
 
         seconds.sort()
 
@@ -249,7 +225,7 @@ class Segment:
                 filtered.append(predicted_angles[j])
 
         if len(filtered) == 0:
-            raise Exception(f"mean is nan. angle set: {predicted_angles}")
+            raise Exception(f"Mean is NaN. Angle set: {predicted_angles}")
 
         return float(np.mean(filtered))
 
@@ -273,7 +249,7 @@ class Segment:
             mean_angle = self._filter_anomalies_linear(predicted_angles, 2.5)
             return mean_angle
         except Exception as e:
-            logger.warning(f"[{length}s] fail to calculate the mean", extra={"e": e})
+            logger.warning(f"[{length}s] mean calculation failed", extra={"e": e})
 
         return None
 
@@ -284,7 +260,7 @@ class Segment:
             min_length, max_length = min(length), max(length)
             length_candidates = length
             length_candidates = sorted(set(l for length in length_candidates for l in range(length - 1, length + 1)))
-            logger.info(f"Speculate the possible length: {length_candidates}")
+            logger.info(f"Speculate possible length: {length_candidates}")
 
         self._populate_first_spins_with_length(max_length)
 
@@ -293,7 +269,6 @@ class Segment:
         logger.info(f"Total lots: {len(sectors)}")
 
         idx = 0
-        # min_range, max_range = utils.range(length)
         max_read_frames = min_length * self._reader.fps
         max_skip_frames = max(
             self._reader.fps * config.MIN_SKIP_OF_WHEEL_SPIN * max_length, self._reader.fps * config.MIN_SKIP_SEC
@@ -301,16 +276,10 @@ class Segment:
         skipped_frames = 0
 
         buffer = self._first_spins_buffer
-        # predicted_angles = {length: [] for length in length_candidates}
-        # predicted_angles = {}
         angles_window: List[(int, float)] = []
         prev_mean_angle = {}
 
         logger.info(f"Skipping {round(max_skip_frames / self._reader.fps, 2)}s")
-
-        # optimization
-        # self._reader.skip(math.ceil(max_skip_frames / self._reader.fps))
-        # skipped_frames = max_skip_frames
 
         while True:
             for frame in buffer:
@@ -319,19 +288,14 @@ class Segment:
                     skipped_frames += 1
                     continue
 
-                # Collect a window with angles. The size of window is config.ANGLE_WINDOW_LEN
+                # Collect the window of angles
                 try:
                     if config.NASTY_OPTIMIZATION:
                         frame.force_set_wheel(self._init_frame.wheel)
                     angle = self._init_frame.calculate_rotation_with(frame)
-                    angles_window.append(
-                        (
-                            idx,
-                            angle,
-                        )
-                    )
+                    angles_window.append((idx, angle))
                 except Exception as e:
-                    logger.error("cannot calculate angle", extra={"frame_id": idx, "e": e})
+                    logger.error("Cannot calculate angle", extra={"frame_id": idx, "e": e})
 
                     angles_window = []
                     max_skip_frames += config.CALCULATION_STEP
@@ -340,32 +304,31 @@ class Segment:
                 if len(angles_window) <= config.ANGLE_WINDOW_LEN:
                     continue
 
-                # Examine each length candidate and drop
+                # Examine each length candidate separatly
                 for length in length_candidates:
                     mean_angle = self._calc_mean_angle(length, angles_window)
                     if mean_angle is None:
                         continue
 
-                    # Remove the candidate if it doesn't fit to the final angle
+                    # Remove the candidate if it doesn't match to the target angle
                     if length in prev_mean_angle:
                         diff = abs(mean_angle - prev_mean_angle[length])
                         if min(diff, 360.0 - diff) > config.MAX_MEAN_ANGLE_DELTA:
                             length_candidates.remove(length)
                             logger.error(
-                                f"Looks like the length {length}s was detected incorrectly. Remove it from the candidates."
+                                f"Length {length}s detected incorrectly. Remove it from the candidates"
                             )
-                            # if only one left, use it as the main length
                             if len(length_candidates) == 1:
                                 max_read_frames = length_candidates[0] * self._reader.fps
-                                logger.info(f"The length is: {length_candidates[0]}")
+                                logger.info(f"Length is: {length_candidates[0]}")
                     prev_mean_angle[length] = mean_angle
 
                 if len(length_candidates) == 0:
-                    raise Exception("no length candidates have left")
+                    raise Exception("No length candidates left")
 
-                # if only one length candidate has left use it as the main length
+                # If only one length candidate is left, use it as the main length
                 if len(length_candidates) == 1:
-                    # dirty hack
+                    # hack
                     if length_candidates[0] not in prev_mean_angle:
                         continue
                     mean_angle = prev_mean_angle[length_candidates[0]]
