@@ -54,7 +54,7 @@ class Reader:
             frame = self._stream.read()
             if frame is None:
                 self._can_read = False
-                logger.error("No frame was read", extra={"frame": self._frame_index})
+                logger.error("No frame read", extra={"frame": self._frame_index})
                 break
 
             frame_buffer.append(stream.Frame(frame, self._frame_index))
@@ -75,11 +75,11 @@ class Reader:
             if last_frame.is_spin_frame():
                 if len(buffer) < 3:
                     raise Exception("Buffer has less than 3 frames")
-                # Take a frame before the previous one, to avoid a case when two serial frames are the same frames.
+                # Take the frame before the previous one to avoid the case when two consecutive frames are identical
                 prev_frame = buffer[-3]
                 try:
                     diff = last_frame.calculate_rotation_with(prev_frame)
-                    # else delta is so small then it's not spin
+                    # Otherwise, if delta is too small, it's not considered a spin
                     if min(diff, abs(diff - 360)) > 0.01:
                         break
 
@@ -90,10 +90,6 @@ class Reader:
                 except Exception:
                     pass
             logger.warning(f"Frame on {last_frame.index / self._fps}s ({last_frame.index}f) is not a spin")
-
-        # Nasty optimization for all other wheels
-        # for frame in buffer:
-        #     frame.force_set_wheel(last_frame.wheel)
 
         return buffer
 

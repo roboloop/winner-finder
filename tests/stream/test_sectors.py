@@ -21,8 +21,6 @@ class FrameSectorsTestCase(unittest.TestCase):
                 if "_comment" in obj:
                     self.skipTest(obj["_comment"])
 
-                # if obj['path'] != 'a1.png':
-                #     self.skipTest('Looking for another')
                 print(f"start:{obj['path']}")
                 image_path = os.path.join(os.path.dirname(__file__), "testdata/extract_sectors", obj["path"])
                 raw = cv2.imread(image_path, cv2.IMREAD_COLOR)

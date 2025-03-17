@@ -24,7 +24,7 @@ class FrameLengthTestCase(unittest.TestCase):
                 image_path = os.path.join(os.path.dirname(__file__), "testdata/detect_length", obj["path"])
                 raw = cv2.imread(image_path, cv2.IMREAD_COLOR)
                 frame = stream.Frame(raw, 0)
-                length = frame.detect_length()
+                length = frame.detect_duration()
                 print(f"Length: {obj['length']}. Result: {length}")
                 self.assertEqual(obj["length"], length)
 
