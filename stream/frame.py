@@ -389,6 +389,7 @@ class Frame:
         if another_frame._rotation_angle is not None:
             return another_frame._rotation_angle
 
+        # TODO: sometimes, it's counting incorrectly.
         gray1 = cv2.cvtColor(self.extract_circle_content(False).copy(), cv2.COLOR_BGR2GRAY)
         gray2 = cv2.cvtColor(another_frame.extract_circle_content(False).copy(), cv2.COLOR_BGR2GRAY)
 

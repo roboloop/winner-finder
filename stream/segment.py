@@ -162,11 +162,14 @@ class Segment:
             try:
                 if config.SPECULATIVE_OPTIMIZATION:
                     frame.force_set_wheel(self._initial_frame.wheel)
+                # TODO: could calculate the angle incorrectly
                 angle = self._initial_frame.calculate_rotation_with(frame)
             except Exception as e:
                 logger.error("Cannot calculate angle", extra={"frame_id": idx, "e": e})
                 continue
 
+            # diff = abs(angle - prev_angle)
+            # if angle < prev_angle and min(diff, 360.0 - diff) < 60.0:
             if angle < prev_angle:
                 spins += 1
                 _exclude_not_matched_seconds(self._first_spins_buffer, index, idx, seconds)
