@@ -265,6 +265,64 @@ run_vod() {
   streamlink --hls-start-offset "$offset" --hls-duration "$duration" --stdout "$link" best | python main.py winner
 }
 
+meme() {
+  # Origin
+  #curl 'https://memealerts.com/api/user/balance' \
+  #  -H 'accept: */*' \
+  #  -H 'accept-language: en-US,en;q=0.9,ru;q=0.8' \
+  #  -H 'authorization: Bearer foo_bearer' \
+  #  -H 'cache-control: no-cache' \
+  #  -H 'content-type: application/json' \
+  #  -b 'lang=ru; theme=dark; _csrf=foo_csrf; x-csrf-token=foo_x_csrf' \
+  #  -H 'origin: https://memealerts.com' \
+  #  -H 'pragma: no-cache' \
+  #  -H 'priority: u=1, i' \
+  #  -H 'referer: https://memealerts.com/twitch-channel' \
+  #  -H 'sec-ch-ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"' \
+  #  -H 'sec-ch-ua-mobile: ?0' \
+  #  -H 'sec-ch-ua-platform: "macOS"' \
+  #  -H 'sec-fetch-dest: empty' \
+  #  -H 'sec-fetch-mode: cors' \
+  #  -H 'sec-fetch-site: same-origin' \
+  #  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36' \
+  #  -H 'x-csrf-token: foo_x_csrf' \
+  #  --data-raw '{"username":"twitch-channel"}'
+
+  sticker_id="65f1e02fbc597ae824b07603"
+  max_length=50
+
+  bearer="Bearer $1"
+  streamer_link="$2"
+  my_name="$3"
+  message="$4"
+
+  length=$(echo -n "$message" | wc -m | awk '{print $1}')
+  [ "$length" -gt "$max_length" ] && echo "The length is $length. The max is $max_length." && exit 1
+
+  # Grab streamer id
+  streamer_id=$(curl -s 'https://memealerts.com/api/supporters/me' -H "authorization: $bearer" \
+    | jq -r ".data.[]
+      | select((.streamerLink == \"$streamer_link\") or (.streamerName | ascii_downcase == (\"$streamer_link\" | ascii_downcase)))
+      | .streamerId")
+  [ -z "$streamer_id" ] && echo "streamer id not found" && exit 1
+
+  # Grab x-csrf-token and _csrf
+  cookies=$(curl -s -D - 'https://memealerts.com/api/user/current' -H "authorization: $bearer" \
+    | grep -i "Set-Cookie" | awk -F': ' '{print $2}' | tr -d '\r')
+  csrf_token=$(echo "$cookies" | grep -o 'x-csrf-token=[^;]*' | cut -d= -f2)
+  csrf=$(echo "$cookies" | grep -o '_csrf=[^;]*' | cut -d= -f2)
+  [ -z "$csrf_token" ] && echo "no csrf token" && exit 1
+  [ -z "$csrf" ] && echo "no _csrf" && exit 1
+
+  # Send meme
+  curl 'https://memealerts.com/api/sticker/send' \
+    -H "authorization: $bearer" \
+    -H 'content-type: application/json' \
+    -b "lang=ru; theme=dark; _csrf=$csrf; x-csrf-token=$csrf_token" \
+    -H "x-csrf-token: $csrf_token" \
+    --data-raw "{\"toChannel\":\"$streamer_id\",\"stickerId\":\"$sticker_id\",\"isSoundOnly\":true,\"topic\":\"Favorites\",\"name\":\"$my_name\",\"isMemePartyActive\":false,\"message\":\"$message\"}"
+}
+
 [[ $# -lt 1 ]] && echo "No function passed" && exit 1
 fn="$1"
 shift
