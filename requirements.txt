@@ -5,3 +5,4 @@ vidgear==0.3.3
 colorlog==6.9.0
 matplotlib==3.10.0
 black==24.10.0
+setuptools==78.1.0

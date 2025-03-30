@@ -58,7 +58,7 @@ The program workflow:
     git clone https://github.com/roboloop/winner-finder
 
     # create a virtual environment
-    python -m venv myenv
+    python -m venv ./.venv
 
     # activate the virtual environment
     source ./.venv/bin/activate
