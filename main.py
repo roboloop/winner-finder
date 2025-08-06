@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 import numpy as np
+import pytesseract
 from matplotlib import pyplot as plt
 
 import config
@@ -21,6 +22,9 @@ logger = config.setup_logger(level=logging.INFO)
 
 def handle_winner(filepath: Optional[str], fps: int, skip_sec: int, visualize: bool) -> None:
     try:
+        logger.info(f"Check the presents of tesseract")
+        check_tesseract()
+
         logger.info(f"Start handle: {filepath}")
 
         if visualize:
@@ -34,6 +38,15 @@ def handle_winner(filepath: Optional[str], fps: int, skip_sec: int, visualize: b
         segment.detect_winner()
     except Exception as e:
         logger.error("fail", extra={"e": e, "trace": traceback.format_exc()})
+
+
+def check_tesseract() -> None:
+    available_languages = pytesseract.get_languages()
+    set_languages = config.TESSERACT_LANGUAGE.split("+")
+    missing_languages = [lang for lang in set_languages if lang not in available_languages]
+
+    if missing_languages:
+        raise Exception(f"Missing languages: {missing_languages}")
 
 
 def handle_all_assets() -> None:
